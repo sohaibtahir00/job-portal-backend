@@ -1,0 +1,429 @@
+// This is your Prisma schema file for Job Portal
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum UserRole {
+  ADMIN
+  EMPLOYER
+  CANDIDATE
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum JobType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERNSHIP
+  TEMPORARY
+}
+
+enum JobStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+  EXPIRED
+}
+
+enum ExperienceLevel {
+  ENTRY_LEVEL
+  MID_LEVEL
+  SENIOR_LEVEL
+  EXECUTIVE
+}
+
+enum ApplicationStatus {
+  PENDING
+  REVIEWED
+  SHORTLISTED
+  INTERVIEW_SCHEDULED
+  INTERVIEWED
+  OFFERED
+  REJECTED
+  WITHDRAWN
+  ACCEPTED
+}
+
+enum TestStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  EXPIRED
+}
+
+enum PlacementStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  UPFRONT_PAID
+  FULLY_PAID
+  FAILED
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  SENT
+  FAILED
+}
+
+enum ReferralStatus {
+  PENDING
+  SUCCESSFUL
+  EXPIRED
+}
+
+enum BlogPostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+// Models
+model User {
+  id            String      @id @default(cuid())
+  email         String      @unique
+  password      String
+  name          String
+  role          UserRole    @default(CANDIDATE)
+  status        UserStatus  @default(ACTIVE)
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // Relations
+  candidate     Candidate?
+  employer      Employer?
+  sentMessages  Message[]   @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+  referrals     Referral[]  @relation("UserReferrals")
+  referredBy    Referral[]  @relation("ReferredUsers")
+  blogPosts     BlogPost[]
+
+  @@index([email])
+  @@index([role])
+  @@index([status])
+}
+
+model Candidate {
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  phone             String?
+  resume            String?   // URL to resume file
+  portfolio         String?   // URL to portfolio
+  linkedIn          String?
+  github            String?
+  bio               String?   @db.Text
+  skills            String[]  // Array of skills
+  experience        Int?      // Years of experience
+  education         String?   @db.Text
+  location          String?
+  preferredJobType  JobType?
+  expectedSalary    Int?
+  availability      Boolean   @default(true)
+
+  // Skills testing fields
+  hasTakenTest      Boolean   @default(false)
+  testScore         Float?    // Overall test score (0-100)
+  testPercentile    Float?    // Percentile rank (0-100)
+  testTier          String?   // ELITE, ADVANCED, INTERMEDIATE, BEGINNER
+  lastTestDate      DateTime? // When last test was taken
+  testInviteToken   String?   @unique // Unique token for test invitation link
+  testInviteSentAt  DateTime? // When test invitation was sent
+
+  // Referral fields
+  referralCode      String?   @unique // Unique referral code for this candidate
+  referredBy        String?   // Email of referrer (if referred by someone)
+  referralEarnings  Int       @default(0) // Total earnings from referrals in cents
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  applications      Application[]
+  testResults       TestResult[]
+  placements        Placement[]
+
+  @@index([userId])
+  @@index([availability])
+  @@index([location])
+  @@index([testTier])
+  @@index([testInviteToken])
+  @@index([referralCode])
+  @@index([referredBy])
+}
+
+model Employer {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  companyName     String
+  companyLogo     String?
+  companyWebsite  String?
+  companySize     String?
+  industry        String?
+  description     String?   @db.Text
+  location        String?
+  phone           String?
+  verified        Boolean   @default(false)
+  stripeCustomerId String?  @unique // Stripe customer ID
+  totalSpent      Int       @default(0) // Total amount spent on placements in cents
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobs            Job[]
+  emailCampaigns  EmailCampaign[]
+  placements      Placement[]
+
+  @@index([userId])
+  @@index([verified])
+  @@index([industry])
+  @@index([stripeCustomerId])
+}
+
+model Job {
+  id                String          @id @default(cuid())
+  employerId        String
+  title             String
+  description       String          @db.Text
+  requirements      String          @db.Text
+  responsibilities  String          @db.Text
+  type              JobType
+  status            JobStatus       @default(DRAFT)
+  location          String
+  remote            Boolean         @default(false)
+  salaryMin         Int?
+  salaryMax         Int?
+  experienceLevel   ExperienceLevel
+  skills            String[]        // Required skills
+  benefits          String?         @db.Text
+  deadline          DateTime?
+  slots             Int             @default(1)
+  views             Int             @default(0)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  // Relations
+  employer          Employer        @relation(fields: [employerId], references: [id], onDelete: Cascade)
+  applications      Application[]
+  placements        Placement[]
+
+  @@index([employerId])
+  @@index([status])
+  @@index([type])
+  @@index([location])
+  @@index([experienceLevel])
+  @@index([createdAt])
+}
+
+model Application {
+  id              String            @id @default(cuid())
+  jobId           String
+  candidateId     String
+  coverLetter     String?           @db.Text
+  status          ApplicationStatus @default(PENDING)
+  appliedAt       DateTime          @default(now())
+  reviewedAt      DateTime?
+  notes           String?           @db.Text
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  // Relations
+  job             Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  candidate       Candidate         @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  testResults     TestResult[]
+
+  @@unique([jobId, candidateId]) // One application per job per candidate
+  @@index([jobId])
+  @@index([candidateId])
+  @@index([status])
+  @@index([appliedAt])
+}
+
+model TestResult {
+  id              String      @id @default(cuid())
+  applicationId   String
+  candidateId     String
+  testName        String
+  testType        String      // e.g., "Technical", "Aptitude", "Personality"
+  score           Int
+  maxScore        Int
+  status          TestStatus  @default(NOT_STARTED)
+  startedAt       DateTime?
+  completedAt     DateTime?
+  feedback        String?     @db.Text
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  application     Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  candidate       Candidate   @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@index([candidateId])
+  @@index([status])
+}
+
+model Placement {
+  id              String          @id @default(cuid())
+  candidateId     String
+  employerId      String?         // Employer who hired the candidate
+  jobId           String?         // Job this placement is for
+  jobTitle        String
+  companyName     String
+  startDate       DateTime
+  endDate         DateTime?
+  salary          Int?
+  status          PlacementStatus @default(PENDING)
+  notes           String?         @db.Text
+
+  // Payment fields
+  paymentStatus   PaymentStatus   @default(PENDING)
+  placementFee    Int?            // Total placement fee in cents
+  feePercentage   Float           @default(18) // Fee percentage (default 18%)
+  upfrontAmount   Int?            // 50% upfront payment in cents
+  remainingAmount Int?            // 50% remaining payment in cents
+  upfrontPaidAt   DateTime?       // When upfront payment was completed
+  remainingPaidAt DateTime?       // When remaining payment was completed
+  stripePaymentIntentId String?   // Stripe Payment Intent ID for upfront
+  stripePaymentIntentId2 String?  // Stripe Payment Intent ID for remaining
+
+  // Guarantee period
+  guaranteePeriodDays Int         @default(90) // Guarantee period in days
+  guaranteeEndDate    DateTime?   // Calculated: startDate + guaranteePeriodDays
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  // Relations
+  candidate       Candidate       @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  employer        Employer?       @relation(fields: [employerId], references: [id], onDelete: SetNull)
+  job             Job?            @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+  @@index([candidateId])
+  @@index([employerId])
+  @@index([jobId])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([startDate])
+}
+
+model Message {
+  id              String        @id @default(cuid())
+  senderId        String
+  receiverId      String
+  subject         String?
+  content         String        @db.Text
+  status          MessageStatus @default(SENT)
+  readAt          DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Relations
+  sender          User          @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver        User          @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model EmailCampaign {
+  id              String          @id @default(cuid())
+  employerId      String
+  name            String
+  subject         String
+  content         String          @db.Text
+  recipients      String[]        // Array of email addresses
+  status          CampaignStatus  @default(DRAFT)
+  scheduledAt     DateTime?
+  sentAt          DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  // Relations
+  employer        Employer        @relation(fields: [employerId], references: [id], onDelete: Cascade)
+
+  @@index([employerId])
+  @@index([status])
+  @@index([scheduledAt])
+}
+
+model Referral {
+  id              String          @id @default(cuid())
+  referrerId      String
+  referredUserId  String?
+  email           String
+  name            String?
+  phone           String?
+  status          ReferralStatus  @default(PENDING)
+  reward          Int?            // Referral reward amount in cents
+  payoutStatus    String?         // PENDING, PAID, CANCELLED
+  paidAt          DateTime?       // When reward was paid
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  expiresAt       DateTime?
+
+  // Relations
+  referrer        User            @relation("UserReferrals", fields: [referrerId], references: [id], onDelete: Cascade)
+  referredUser    User?           @relation("ReferredUsers", fields: [referredUserId], references: [id], onDelete: SetNull)
+
+  @@index([referrerId])
+  @@index([referredUserId])
+  @@index([status])
+  @@index([email])
+  @@index([payoutStatus])
+}
+
+model BlogPost {
+  id              String          @id @default(cuid())
+  authorId        String
+  title           String
+  slug            String          @unique
+  content         String          @db.Text
+  excerpt         String?         @db.Text
+  featuredImage   String?
+  tags            String[]
+  status          BlogPostStatus  @default(DRAFT)
+  views           Int             @default(0)
+  publishedAt     DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  // Relations
+  author          User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([authorId])
+  @@index([slug])
+  @@index([status])
+  @@index([publishedAt])
+  @@index([tags])
+}

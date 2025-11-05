@@ -1,0 +1,931 @@
+{
+  "info": {
+    "name": "Job Portal API",
+    "description": "Comprehensive API collection for Job Portal platform",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "12345"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api",
+      "type": "string"
+    },
+    {
+      "key": "cronSecret",
+      "value": "your-cron-secret-here",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "item": [
+        {
+          "name": "Check API Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Check the health status of the API and its dependencies"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Sign Up",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"password\": \"SecurePass123\",\n  \"role\": \"CANDIDATE\",\n  \"phone\": \"+1234567890\",\n  \"location\": \"New York, NY\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/signup",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "signup"]
+            }
+          }
+        },
+        {
+          "name": "Sign In",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john@example.com\",\n  \"password\": \"SecurePass123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/signin",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "signin"]
+            }
+          }
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Jobs",
+      "item": [
+        {
+          "name": "List Jobs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/jobs?page=1&limit=20&type=FULL_TIME",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "type",
+                  "value": "FULL_TIME"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Job Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/jobs/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "job-uuid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Job",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Senior Software Engineer\",\n  \"description\": \"We are looking for an experienced software engineer to join our growing team. You will work on cutting-edge technologies and help build scalable applications.\",\n  \"requirements\": \"5+ years experience with React and Node.js, Strong TypeScript skills, Experience with PostgreSQL\",\n  \"responsibilities\": \"Lead development team, Code reviews, Architecture decisions, Mentor junior developers\",\n  \"type\": \"FULL_TIME\",\n  \"location\": \"New York, NY\",\n  \"remoteType\": \"HYBRID\",\n  \"experienceLevel\": \"SENIOR\",\n  \"salaryMin\": 120000,\n  \"salaryMax\": 180000,\n  \"skills\": [\"React\", \"Node.js\", \"TypeScript\", \"PostgreSQL\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/jobs",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs"]
+            }
+          }
+        },
+        {
+          "name": "Update Job",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"salaryMin\": 130000,\n  \"salaryMax\": 190000\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/jobs/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "job-uuid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Job",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/jobs/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "job-uuid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Publish Job",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/jobs/:id/publish",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs", ":id", "publish"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "job-uuid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search Jobs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/jobs/search?q=react&remote=REMOTE&salaryMin=100000&sortBy=salary_high&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs", "search"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "react"
+                },
+                {
+                  "key": "remote",
+                  "value": "REMOTE"
+                },
+                {
+                  "key": "salaryMin",
+                  "value": "100000"
+                },
+                {
+                  "key": "sortBy",
+                  "value": "salary_high"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Applications",
+      "item": [
+        {
+          "name": "Submit Application",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jobId\": \"job-uuid-here\",\n  \"coverLetter\": \"I am very interested in this position because of my 7 years of experience in React and Node.js development. I have successfully led multiple teams and delivered scalable applications.\",\n  \"expectedSalary\": 150000,\n  \"availableFrom\": \"2024-03-01T00:00:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/applications",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications"]
+            }
+          }
+        },
+        {
+          "name": "List My Applications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/applications?status=PENDING",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PENDING"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Application Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"INTERVIEW_SCHEDULED\",\n  \"interviewDate\": \"2024-01-20T14:00:00.000Z\",\n  \"interviewNotes\": \"Technical interview with engineering team\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/applications/:id/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications", ":id", "status"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "application-uuid-here"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Candidates",
+      "item": [
+        {
+          "name": "Get Candidate Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/candidates/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["candidates", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "candidate-uuid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Candidate Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+1234567890\",\n  \"location\": \"San Francisco, CA\",\n  \"bio\": \"Experienced software engineer with focus on React and Node.js\",\n  \"skills\": [\"React\", \"Node.js\", \"TypeScript\", \"PostgreSQL\"],\n  \"experience\": 7,\n  \"expectedSalary\": 160000,\n  \"availability\": \"IMMEDIATE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/candidates/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["candidates", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "candidate-uuid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search Candidates",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/candidates/search?skills=React,Node.js&testScoreMin=80&sortBy=score_high",
+              "host": ["{{baseUrl}}"],
+              "path": ["candidates", "search"],
+              "query": [
+                {
+                  "key": "skills",
+                  "value": "React,Node.js"
+                },
+                {
+                  "key": "testScoreMin",
+                  "value": "80"
+                },
+                {
+                  "key": "sortBy",
+                  "value": "score_high"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dashboards",
+      "item": [
+        {
+          "name": "Candidate Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/candidate",
+              "host": ["{{baseUrl}}"],
+              "path": ["dashboard", "candidate"]
+            }
+          }
+        },
+        {
+          "name": "Employer Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/employer",
+              "host": ["{{baseUrl}}"],
+              "path": ["dashboard", "employer"]
+            }
+          }
+        },
+        {
+          "name": "Admin Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/admin",
+              "host": ["{{baseUrl}}"],
+              "path": ["dashboard", "admin"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Messages",
+      "item": [
+        {
+          "name": "Send Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"receiverId\": \"user-uuid-here\",\n  \"subject\": \"Question about the position\",\n  \"content\": \"I would like to know more about the remote work policy and team structure.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/messages",
+              "host": ["{{baseUrl}}"],
+              "path": ["messages"]
+            }
+          }
+        },
+        {
+          "name": "List Messages",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/messages?type=inbox&status=UNREAD",
+              "host": ["{{baseUrl}}"],
+              "path": ["messages"],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "inbox"
+                },
+                {
+                  "key": "status",
+                  "value": "UNREAD"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Message",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/messages/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["messages", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "message-uuid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mark as Read",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/messages/:id/read",
+              "host": ["{{baseUrl}}"],
+              "path": ["messages", ":id", "read"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "message-uuid-here"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Uploads",
+      "item": [
+        {
+          "name": "Upload Resume",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/path/to/resume.pdf"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/upload/resume",
+              "host": ["{{baseUrl}}"],
+              "path": ["upload", "resume"]
+            }
+          }
+        },
+        {
+          "name": "Upload Company Logo",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/path/to/logo.png"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/upload/logo",
+              "host": ["{{baseUrl}}"],
+              "path": ["upload", "logo"]
+            }
+          }
+        },
+        {
+          "name": "Upload Profile Image",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/path/to/profile.jpg"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/upload/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["upload", "profile"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Referrals",
+      "item": [
+        {
+          "name": "Generate Referral Code",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/referrals/generate",
+              "host": ["{{baseUrl}}"],
+              "path": ["referrals", "generate"]
+            }
+          }
+        },
+        {
+          "name": "List Referrals",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/referrals",
+              "host": ["{{baseUrl}}"],
+              "path": ["referrals"]
+            }
+          }
+        },
+        {
+          "name": "Apply Referral Code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"referralCode\": \"REF12345678\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/referrals/apply",
+              "host": ["{{baseUrl}}"],
+              "path": ["referrals", "apply"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "List All Jobs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/jobs?status=PENDING_APPROVAL",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "jobs"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PENDING_APPROVAL"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Approve Job",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"approve\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/jobs/:id/approve",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "jobs", ":id", "approve"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "job-uuid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reject Job",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"reject\",\n  \"reason\": \"Job description violates community guidelines\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/jobs/:id/approve",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "jobs", ":id", "approve"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "job-uuid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List All Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/users?role=CANDIDATE&includeStats=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users"],
+              "query": [
+                {
+                  "key": "role",
+                  "value": "CANDIDATE"
+                },
+                {
+                  "key": "includeStats",
+                  "value": "true"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Suspend User",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"suspend\",\n  \"reason\": \"Violation of terms of service\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/users/:id/suspend",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users", ":id", "suspend"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "user-uuid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Unsuspend User",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"unsuspend\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/users/:id/suspend",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users", ":id", "suspend"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "user-uuid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Flagged Tests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/tests/flagged?status=pending",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "tests", "flagged"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "pending"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Verify Test",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"verify\",\n  \"note\": \"Reviewed test session logs - legitimate high score\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/tests/:id/verify",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "tests", ":id", "verify"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "candidate-uuid-here"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cron Jobs",
+      "item": [
+        {
+          "name": "Expire Jobs",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{cronSecret}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cron/expire-jobs",
+              "host": ["{{baseUrl}}"],
+              "path": ["cron", "expire-jobs"]
+            }
+          }
+        },
+        {
+          "name": "Payment Reminders",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-cron-secret",
+                "value": "{{cronSecret}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cron/payment-reminders",
+              "host": ["{{baseUrl}}"],
+              "path": ["cron", "payment-reminders"]
+            }
+          }
+        },
+        {
+          "name": "Guarantee Checks",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cron/guarantee-checks?secret={{cronSecret}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["cron", "guarantee-checks"],
+              "query": [
+                {
+                  "key": "secret",
+                  "value": "{{cronSecret}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Expire Jobs Info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{cronSecret}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cron/expire-jobs",
+              "host": ["{{baseUrl}}"],
+              "path": ["cron", "expire-jobs"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
