@@ -4,6 +4,9 @@ import { hash } from "bcryptjs";
 import { UserRole } from "@prisma/client";
 import { prisma } from "./prisma";
 
+// Re-export authOptions for other modules to use
+export { authOptions };
+
 /**
  * Get the current authenticated user session
  * Use this in Server Components and API routes
