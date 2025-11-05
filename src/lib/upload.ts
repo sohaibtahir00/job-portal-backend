@@ -202,7 +202,7 @@ export async function uploadToLocal(
 
 /**
  * Upload file to Cloudflare R2
- * Requires @aws-sdk/client-s3 package
+ * Requires @aws-sdk/client-s3 package (optional dependency)
  */
 export async function uploadToR2(
   file: File,
@@ -219,7 +219,17 @@ export async function uploadToR2(
     }
 
     // Dynamic import to avoid loading AWS SDK if not needed
-    const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
+    // This will gracefully fail if @aws-sdk/client-s3 is not installed
+    let S3Client, PutObjectCommand;
+    try {
+      const awsSdk = await import("@aws-sdk/client-s3");
+      S3Client = awsSdk.S3Client;
+      PutObjectCommand = awsSdk.PutObjectCommand;
+    } catch (importError) {
+      throw new Error(
+        "AWS SDK is not installed. To use R2 storage, install @aws-sdk/client-s3: npm install @aws-sdk/client-s3"
+      );
+    }
 
     // Create S3 client for R2
     const s3Client = new S3Client({
@@ -297,7 +307,18 @@ export async function deleteFile(fileUrl: string): Promise<boolean> {
       const url = new URL(fileUrl);
       const key = url.pathname.substring(1); // Remove leading slash
 
-      const { S3Client, DeleteObjectCommand } = await import("@aws-sdk/client-s3");
+      // Dynamic import with error handling
+      let S3Client, DeleteObjectCommand;
+      try {
+        const awsSdk = await import("@aws-sdk/client-s3");
+        S3Client = awsSdk.S3Client;
+        DeleteObjectCommand = awsSdk.DeleteObjectCommand;
+      } catch (importError) {
+        console.error("AWS SDK not available for R2 storage");
+        throw new Error(
+          "AWS SDK is not installed. To use R2 storage, install @aws-sdk/client-s3"
+        );
+      }
 
       const s3Client = new S3Client({
         region: "auto",
