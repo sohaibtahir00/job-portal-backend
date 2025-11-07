@@ -3,6 +3,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { hash } from "bcryptjs";
 import { UserRole } from "@prisma/client";
 import { prisma } from "./prisma";
+import { headers } from "next/headers";
 
 // Re-export authOptions for other modules to use
 export { authOptions };
@@ -18,8 +19,42 @@ export async function getSession() {
 /**
  * Get the current authenticated user
  * Returns null if not authenticated
+ *
+ * UPDATED: Now checks custom headers (X-User-Id, X-User-Email, X-User-Role)
+ * sent by frontend, since frontend and backend are on different domains
+ * and session cookies don't cross domains.
  */
 export async function getCurrentUser() {
+  // First try to get user from custom headers (cross-domain support)
+  const headersList = headers();
+  const userId = headersList.get('X-User-Id');
+  const userEmail = headersList.get('X-User-Email');
+  const userRole = headersList.get('X-User-Role');
+
+  if (userId && userEmail) {
+    // Validate that the user exists and headers match database
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        status: true,
+        image: true,
+        emailVerified: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    // Verify email and role match (prevent header spoofing)
+    if (user && user.email === userEmail && user.role === userRole) {
+      return user;
+    }
+  }
+
+  // Fall back to session-based auth (for same-domain requests)
   const session = await getSession();
 
   if (!session?.user?.email) {
@@ -93,15 +128,27 @@ export async function isCandidate(): Promise<boolean> {
 
 /**
  * Require authentication - throws error if not authenticated
+ * UPDATED: Now works with both session-based and header-based auth
  */
 export async function requireAuth() {
-  const session = await getSession();
+  // Try to get user via headers or session
+  const user = await getCurrentUser();
 
-  if (!session?.user) {
+  if (!user) {
     throw new Error("Unauthorized - Authentication required");
   }
 
-  return session;
+  // Return a session-like object for compatibility
+  return {
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      status: user.status,
+      image: user.image,
+    }
+  };
 }
 
 /**
