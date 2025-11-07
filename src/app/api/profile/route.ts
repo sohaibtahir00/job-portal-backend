@@ -6,13 +6,34 @@ import { prisma } from "@/lib/prisma";
  * GET /api/profile
  * Get the current user's profile with role-specific data
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // Require authentication
-    await requireAuth();
+    // Try to get user from headers first (for cross-domain requests)
+    const userEmail = request.headers.get('X-User-Email');
 
-    // Get current user with all details
-    const user = await getCurrentUser();
+    let user = null;
+
+    if (userEmail) {
+      // Get user from email header (cross-domain request from frontend)
+      user = await prisma.user.findUnique({
+        where: { email: userEmail },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          status: true,
+          image: true,
+          emailVerified: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+    } else {
+      // Fall back to session-based auth (same-domain request)
+      await requireAuth();
+      user = await getCurrentUser();
+    }
 
     if (!user) {
       return NextResponse.json(
@@ -94,10 +115,29 @@ export async function GET() {
  */
 export async function PATCH(request: NextRequest) {
   try {
-    // Require authentication
-    await requireAuth();
+    // Try to get user from headers first (for cross-domain requests)
+    const userEmail = request.headers.get('X-User-Email');
 
-    const user = await getCurrentUser();
+    let user = null;
+
+    if (userEmail) {
+      // Get user from email header (cross-domain request from frontend)
+      user = await prisma.user.findUnique({
+        where: { email: userEmail },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          status: true,
+          image: true,
+        },
+      });
+    } else {
+      // Fall back to session-based auth (same-domain request)
+      await requireAuth();
+      user = await getCurrentUser();
+    }
 
     if (!user) {
       return NextResponse.json(
