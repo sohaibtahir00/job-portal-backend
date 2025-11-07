@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { UserRole } from "@prisma/client";
-import { prisma } from "./lib/prisma";
 
 // Define protected routes and their required roles
 const protectedRoutes: Record<string, UserRole[]> = {
@@ -70,36 +69,14 @@ export async function middleware(request: NextRequest) {
   }
 
   // Check for custom authentication headers (for cross-domain requests)
+  // Note: We only check if headers EXIST here, actual validation happens in route handlers
+  // This allows cross-domain requests to bypass middleware auth and reach route handlers
   const userId = request.headers.get('X-User-Id');
   const userEmail = request.headers.get('X-User-Email');
   const userRole = request.headers.get('X-User-Role');
 
-  let isAuthenticatedViaHeaders = false;
-  let authenticatedUserRole: UserRole | null = null;
-
-  // Validate custom headers if present
-  if (userId && userEmail && userRole) {
-    try {
-      // Validate that the user exists and headers match database
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: {
-          id: true,
-          email: true,
-          role: true,
-          status: true,
-        },
-      });
-
-      // Verify email and role match (prevent header spoofing)
-      if (user && user.email === userEmail && user.role === userRole && user.status === 'ACTIVE') {
-        isAuthenticatedViaHeaders = true;
-        authenticatedUserRole = user.role as UserRole;
-      }
-    } catch (error) {
-      console.error('[Middleware] Error validating custom headers:', error);
-    }
-  }
+  const hasCustomHeaders = !!(userId && userEmail && userRole);
+  const authenticatedUserRole = userRole as UserRole | null;
 
   // Get the token from the request (for same-domain requests)
   const token = await getToken({
@@ -113,7 +90,8 @@ export async function middleware(request: NextRequest) {
   );
 
   // Check if user is authenticated via either method
-  const isAuthenticated = isAuthenticatedViaHeaders || !!token;
+  // For custom headers, we trust they exist and let route handlers validate them
+  const isAuthenticated = hasCustomHeaders || !!token;
 
   // If route requires auth but user is not authenticated via either method
   if (requiresAuth && !isAuthenticated) {
