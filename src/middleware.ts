@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { UserRole } from "@prisma/client";
+import { prisma } from "./lib/prisma";
 
 // Define protected routes and their required roles
 const protectedRoutes: Record<string, UserRole[]> = {
@@ -19,6 +20,7 @@ const protectedRoutes: Record<string, UserRole[]> = {
   // Candidate routes
   "/dashboard/candidate": [UserRole.CANDIDATE, UserRole.ADMIN],
   "/api/candidate": [UserRole.CANDIDATE, UserRole.ADMIN],
+  "/api/candidates": [UserRole.CANDIDATE, UserRole.ADMIN],
   "/api/applications": [UserRole.CANDIDATE, UserRole.ADMIN],
 
   // Common authenticated routes (all roles)
@@ -67,7 +69,39 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // Get the token from the request
+  // Check for custom authentication headers (for cross-domain requests)
+  const userId = request.headers.get('X-User-Id');
+  const userEmail = request.headers.get('X-User-Email');
+  const userRole = request.headers.get('X-User-Role');
+
+  let isAuthenticatedViaHeaders = false;
+  let authenticatedUserRole: UserRole | null = null;
+
+  // Validate custom headers if present
+  if (userId && userEmail && userRole) {
+    try {
+      // Validate that the user exists and headers match database
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          status: true,
+        },
+      });
+
+      // Verify email and role match (prevent header spoofing)
+      if (user && user.email === userEmail && user.role === userRole && user.status === 'ACTIVE') {
+        isAuthenticatedViaHeaders = true;
+        authenticatedUserRole = user.role as UserRole;
+      }
+    } catch (error) {
+      console.error('[Middleware] Error validating custom headers:', error);
+    }
+  }
+
+  // Get the token from the request (for same-domain requests)
   const token = await getToken({
     req: request,
     secret: process.env.NEXTAUTH_SECRET,
@@ -78,8 +112,11 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith(route)
   );
 
-  // If route requires auth but user is not authenticated
-  if (requiresAuth && !token) {
+  // Check if user is authenticated via either method
+  const isAuthenticated = isAuthenticatedViaHeaders || !!token;
+
+  // If route requires auth but user is not authenticated via either method
+  if (requiresAuth && !isAuthenticated) {
     const signInUrl = new URL("/auth/signin", request.url);
     signInUrl.searchParams.set("callbackUrl", pathname);
     const response = NextResponse.redirect(signInUrl);
@@ -94,11 +131,12 @@ export async function middleware(request: NextRequest) {
   }
 
   // If user is authenticated, check role-based access
-  if (token) {
-    const userRole = token.role as UserRole;
+  if (isAuthenticated) {
+    // Get user role from either token or header authentication
+    const currentUserRole = (authenticatedUserRole || token?.role) as UserRole;
 
-    // Check if user's account is active
-    if (token.status !== "ACTIVE") {
+    // Check if user's account is active (for token-based auth)
+    if (token && token.status !== "ACTIVE") {
       const errorUrl = new URL("/auth/error", request.url);
       errorUrl.searchParams.set("error", "AccountInactive");
       const response = NextResponse.redirect(errorUrl);
@@ -116,11 +154,28 @@ export async function middleware(request: NextRequest) {
     for (const [route, allowedRoles] of Object.entries(protectedRoutes)) {
       if (pathname.startsWith(route)) {
         // Check if user has required role
-        if (!allowedRoles.includes(userRole)) {
-          // Redirect to appropriate dashboard based on role
+        if (!allowedRoles.includes(currentUserRole)) {
+          // For API requests (like from frontend), return 403 instead of redirecting
+          if (pathname.startsWith("/api/")) {
+            return new NextResponse(
+              JSON.stringify({ error: `Forbidden - ${allowedRoles.join(" or ")} role required` }),
+              {
+                status: 403,
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(isAllowedOrigin && {
+                    'Access-Control-Allow-Origin': origin,
+                    'Access-Control-Allow-Credentials': 'true',
+                  }),
+                },
+              }
+            );
+          }
+
+          // Redirect to appropriate dashboard based on role (for page requests)
           let redirectPath = "/";
 
-          switch (userRole) {
+          switch (currentUserRole) {
             case UserRole.ADMIN:
               redirectPath = "/dashboard/admin";
               break;
@@ -146,11 +201,11 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    // Redirect authenticated users from auth pages to their dashboard
+    // Redirect authenticated users from auth pages to their dashboard (only for page requests)
     if (pathname.startsWith("/auth/signin") || pathname.startsWith("/auth/signup")) {
       let dashboardPath = "/dashboard";
 
-      switch (userRole) {
+      switch (currentUserRole) {
         case UserRole.ADMIN:
           dashboardPath = "/dashboard/admin";
           break;
