@@ -30,9 +30,41 @@ const protectedRoutes: Record<string, UserRole[]> = {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Get origin from request
+  const origin = request.headers.get('origin') || '';
+
+  // Allowed origins for CORS
+  const allowedOrigins = [
+    'https://jobportal-rouge-mu.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:3001',
+  ];
+
+  // Check if origin is allowed
+  const isAllowedOrigin = allowedOrigins.includes(origin);
+
+  // Handle preflight OPTIONS requests for CORS
+  if (request.method === 'OPTIONS') {
+    return new NextResponse(null, {
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': isAllowedOrigin ? origin : allowedOrigins[0],
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-Id, X-User-Email, X-User-Role',
+        'Access-Control-Allow-Credentials': 'true',
+        'Access-Control-Max-Age': '86400',
+      },
+    });
+  }
+
   // Exclude webhook routes from authentication (Stripe webhooks need to bypass auth)
   if (pathname.startsWith("/api/webhooks/")) {
-    return NextResponse.next();
+    const response = NextResponse.next();
+    if (isAllowedOrigin) {
+      response.headers.set('Access-Control-Allow-Origin', origin);
+      response.headers.set('Access-Control-Allow-Credentials', 'true');
+    }
+    return response;
   }
 
   // Get the token from the request
@@ -50,7 +82,15 @@ export async function middleware(request: NextRequest) {
   if (requiresAuth && !token) {
     const signInUrl = new URL("/auth/signin", request.url);
     signInUrl.searchParams.set("callbackUrl", pathname);
-    return NextResponse.redirect(signInUrl);
+    const response = NextResponse.redirect(signInUrl);
+
+    // Add CORS headers
+    if (isAllowedOrigin) {
+      response.headers.set('Access-Control-Allow-Origin', origin);
+      response.headers.set('Access-Control-Allow-Credentials', 'true');
+    }
+
+    return response;
   }
 
   // If user is authenticated, check role-based access
@@ -61,7 +101,15 @@ export async function middleware(request: NextRequest) {
     if (token.status !== "ACTIVE") {
       const errorUrl = new URL("/auth/error", request.url);
       errorUrl.searchParams.set("error", "AccountInactive");
-      return NextResponse.redirect(errorUrl);
+      const response = NextResponse.redirect(errorUrl);
+
+      // Add CORS headers
+      if (isAllowedOrigin) {
+        response.headers.set('Access-Control-Allow-Origin', origin);
+        response.headers.set('Access-Control-Allow-Credentials', 'true');
+      }
+
+      return response;
     }
 
     // Find matching protected route
@@ -84,7 +132,15 @@ export async function middleware(request: NextRequest) {
               break;
           }
 
-          return NextResponse.redirect(new URL(redirectPath, request.url));
+          const response = NextResponse.redirect(new URL(redirectPath, request.url));
+
+          // Add CORS headers
+          if (isAllowedOrigin) {
+            response.headers.set('Access-Control-Allow-Origin', origin);
+            response.headers.set('Access-Control-Allow-Credentials', 'true');
+          }
+
+          return response;
         }
         break;
       }
@@ -106,12 +162,30 @@ export async function middleware(request: NextRequest) {
           break;
       }
 
-      return NextResponse.redirect(new URL(dashboardPath, request.url));
+      const response = NextResponse.redirect(new URL(dashboardPath, request.url));
+
+      // Add CORS headers
+      if (isAllowedOrigin) {
+        response.headers.set('Access-Control-Allow-Origin', origin);
+        response.headers.set('Access-Control-Allow-Credentials', 'true');
+      }
+
+      return response;
     }
   }
 
-  // Allow the request to proceed
-  return NextResponse.next();
+  // Allow the request to proceed with CORS headers
+  const response = NextResponse.next();
+
+  // Add CORS headers to all responses
+  if (isAllowedOrigin) {
+    response.headers.set('Access-Control-Allow-Origin', origin);
+    response.headers.set('Access-Control-Allow-Credentials', 'true');
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-User-Id, X-User-Email, X-User-Role');
+  }
+
+  return response;
 }
 
 // Configure which routes to run middleware on
