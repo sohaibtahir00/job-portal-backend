@@ -7,6 +7,7 @@ import { UserRole, JobStatus, JobType, ExperienceLevel } from "@prisma/client";
  * GET /api/jobs/[id]
  * Get a single job with full details and employer information
  * Public route - no authentication required
+ * If authenticated as candidate, includes applied/saved status
  */
 export async function GET(
   request: NextRequest,
@@ -56,7 +57,75 @@ export async function GET(
       },
     });
 
-    return NextResponse.json({ job });
+    // Check if user is authenticated as candidate
+    let candidateInfo = null;
+    try {
+      const user = await getCurrentUser();
+      if (user) {
+        const candidate = await prisma.candidate.findUnique({
+          where: { userId: user.id },
+          select: {
+            id: true,
+            phone: true,
+            resume: true,
+            bio: true,
+            skills: true,
+          },
+        });
+
+        if (candidate) {
+          // Check if candidate has applied
+          const application = await prisma.application.findFirst({
+            where: {
+              jobId: id,
+              candidateId: candidate.id,
+            },
+            select: {
+              id: true,
+              status: true,
+              appliedAt: true,
+              coverLetter: true,
+            },
+          });
+
+          // Check if candidate has saved this job
+          const savedJob = await prisma.savedJob.findUnique({
+            where: {
+              candidateId_jobId: {
+                candidateId: candidate.id,
+                jobId: id,
+              },
+            },
+            select: {
+              savedAt: true,
+            },
+          });
+
+          // Check profile completion
+          const profileComplete = !!(
+            candidate.phone &&
+            candidate.resume &&
+            candidate.bio &&
+            candidate.skills &&
+            candidate.skills.length > 0
+          );
+
+          candidateInfo = {
+            hasApplied: !!application,
+            isSaved: !!savedJob,
+            application: application || null,
+            profileComplete,
+          };
+        }
+      }
+    } catch {
+      // User not authenticated or not a candidate, continue as public
+    }
+
+    return NextResponse.json({
+      job,
+      candidateInfo,
+    });
   } catch (error) {
     console.error("Job fetch error:", error);
     return NextResponse.json(
