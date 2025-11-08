@@ -308,9 +308,30 @@ export async function POST(request: NextRequest) {
       salaryMax,
       experienceLevel,
       skills = [],
+      niceToHaveSkills = [],
+      techStack = [],
       benefits,
       deadline,
       slots = 1,
+      // New comprehensive fields
+      nicheCategory,
+      remoteType,
+      keyResponsibilities = [],
+      equityOffered = false,
+      specificBenefits = [],
+      // Skills Assessment (CRITICAL)
+      requiresAssessment = false,
+      minSkillsScore,
+      requiredTier,
+      customAssessmentQuestions,
+      // Interview Process
+      interviewRounds,
+      interviewProcess,
+      hiringTimeline,
+      startDateNeeded,
+      // Application Settings
+      maxApplicants,
+      screeningQuestions,
     } = body;
 
     // Validate required fields
@@ -371,9 +392,30 @@ export async function POST(request: NextRequest) {
         salaryMax,
         experienceLevel,
         skills,
+        niceToHaveSkills,
+        techStack,
         benefits,
         deadline: deadline ? new Date(deadline) : null,
         slots,
+        // New comprehensive fields
+        nicheCategory,
+        remoteType,
+        keyResponsibilities,
+        equityOffered,
+        specificBenefits,
+        // Skills Assessment
+        requiresAssessment,
+        minSkillsScore,
+        requiredTier,
+        customAssessmentQuestions,
+        // Interview Process
+        interviewRounds,
+        interviewProcess,
+        hiringTimeline,
+        startDateNeeded: startDateNeeded ? new Date(startDateNeeded) : null,
+        // Application Settings
+        maxApplicants,
+        screeningQuestions,
         status: JobStatus.DRAFT, // Always starts as DRAFT
       },
       include: {

@@ -242,10 +242,35 @@ model Job {
   salaryMax         Int?
   experienceLevel   ExperienceLevel
   skills            String[]        // Required skills
+  niceToHaveSkills  String[]        @default([]) // Nice-to-have skills
+  techStack         String[]        @default([]) // Tech stack required
   benefits          String?         @db.Text
   deadline          DateTime?
   slots             Int             @default(1)
   views             Int             @default(0)
+
+  // New fields for comprehensive job posting
+  nicheCategory     String?         // AI/ML, Healthcare IT, Fintech, Cybersecurity
+  remoteType        String?         // REMOTE, HYBRID, ONSITE
+  keyResponsibilities String[]      @default([]) // Bullet points for responsibilities
+  equityOffered     Boolean         @default(false)
+  specificBenefits  String[]        @default([]) // Health, Dental, 401k, etc.
+
+  // Skills Assessment Requirements (CRITICAL NEW FEATURE)
+  requiresAssessment Boolean        @default(false)
+  minSkillsScore    Int?           // Minimum score required (0-100)
+  requiredTier      String?        // Any, Competent+, Proficient+, Advanced+, Expert
+  customAssessmentQuestions Json?  // Array of custom questions
+
+  // Interview Process
+  interviewRounds   Int?           // Number of interview rounds
+  interviewProcess  String?        @db.Text // Description of interview process
+  hiringTimeline    String?        // Estimate like "2-4 weeks"
+  startDateNeeded   DateTime?      // When they need someone to start
+
+  // Application Settings
+  maxApplicants     Int?           // Maximum number of applicants
+  screeningQuestions Json?         // Array of screening questions for applicants
 
   // Job claiming fields
   isClaimed         Boolean         @default(false)
@@ -269,6 +294,8 @@ model Job {
   @@index([experienceLevel])
   @@index([createdAt])
   @@index([isClaimed])
+  @@index([nicheCategory])
+  @@index([requiresAssessment])
 }
 
 model Application {
