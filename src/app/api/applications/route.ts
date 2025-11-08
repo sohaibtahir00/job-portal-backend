@@ -240,12 +240,14 @@ export async function GET(request: NextRequest) {
 
     // Pagination
     const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "10");
+    const limit = parseInt(searchParams.get("limit") || "50");
     const skip = (page - 1) * limit;
 
     // Filters
     const status = searchParams.get("status") as ApplicationStatus | null;
     const jobId = searchParams.get("jobId");
+    const skillsFilter = searchParams.get("skillsFilter"); // all, verified, 80+, 60-79, <60
+    const sortBy = searchParams.get("sortBy") || "recent"; // recent, skillsScore, bestMatch, applicationDate
 
     // Build where clause based on role
     let where: any = {};
@@ -299,8 +301,44 @@ export async function GET(request: NextRequest) {
       where.jobId = jobId;
     }
 
+    // Apply skills filter if provided
+    if (skillsFilter && user.role === UserRole.EMPLOYER) {
+      if (skillsFilter === "verified") {
+        where.candidate = {
+          hasTakenTest: true,
+        };
+      } else if (skillsFilter === "80+") {
+        where.candidate = {
+          hasTakenTest: true,
+          testScore: { gte: 80 },
+        };
+      } else if (skillsFilter === "60-79") {
+        where.candidate = {
+          hasTakenTest: true,
+          testScore: { gte: 60, lt: 80 },
+        };
+      } else if (skillsFilter === "<60") {
+        where.candidate = {
+          hasTakenTest: true,
+          testScore: { lt: 60 },
+        };
+      }
+    }
+
     // Get total count
     const totalCount = await prisma.application.count({ where });
+
+    // Determine sort order
+    let orderBy: any = { appliedAt: "desc" }; // default: most recent
+    if (sortBy === "skillsScore") {
+      orderBy = [
+        { candidate: { testScore: "desc" } },
+        { appliedAt: "desc" },
+      ];
+    } else if (sortBy === "applicationDate") {
+      orderBy = { appliedAt: "asc" };
+    }
+    // bestMatch would require complex calculation, default to recent for now
 
     // Fetch applications
     const applications = await prisma.application.findMany({
@@ -313,6 +351,9 @@ export async function GET(request: NextRequest) {
             type: true,
             location: true,
             status: true,
+            salaryMin: true,
+            salaryMax: true,
+            skills: true,
             employer: {
               select: {
                 id: true,
@@ -328,6 +369,13 @@ export async function GET(request: NextRequest) {
             experience: true,
             location: true,
             skills: true,
+            availability: true,
+            hasTakenTest: true,
+            testScore: true,
+            testPercentile: true,
+            testTier: true,
+            currentTitle: true,
+            currentCompany: true,
             user: {
               select: {
                 name: true,
@@ -344,12 +392,15 @@ export async function GET(request: NextRequest) {
             score: true,
             maxScore: true,
             status: true,
+            category: true,
           },
+          orderBy: {
+            completedAt: "desc",
+          },
+          take: 5, // Top 5 test results
         },
       },
-      orderBy: {
-        appliedAt: "desc",
-      },
+      orderBy,
       skip,
       take: limit,
     });
@@ -359,8 +410,55 @@ export async function GET(request: NextRequest) {
     const hasNext = page < totalPages;
     const hasPrev = page > 1;
 
+    // Calculate stats summary for employers
+    let stats = null;
+    if (user.role === UserRole.EMPLOYER) {
+      const allApplications = await prisma.application.findMany({
+        where: {
+          jobId: { in: where.jobId?.in || [jobId] },
+        },
+        include: {
+          candidate: {
+            select: {
+              hasTakenTest: true,
+              testScore: true,
+            },
+          },
+        },
+      });
+
+      const skillsVerified = allApplications.filter(app => app.candidate.hasTakenTest);
+      const totalWithScores = skillsVerified.filter(app => app.candidate.testScore !== null);
+      const avgScore = totalWithScores.length > 0
+        ? totalWithScores.reduce((sum, app) => sum + (app.candidate.testScore || 0), 0) / totalWithScores.length
+        : 0;
+
+      const statusCounts = {
+        total: allApplications.length,
+        pending: allApplications.filter(a => a.status === ApplicationStatus.PENDING).length,
+        reviewed: allApplications.filter(a => a.status === ApplicationStatus.REVIEWED).length,
+        shortlisted: allApplications.filter(a => a.status === ApplicationStatus.SHORTLISTED).length,
+        interviewScheduled: allApplications.filter(a => a.status === ApplicationStatus.INTERVIEW_SCHEDULED).length,
+        interviewed: allApplications.filter(a => a.status === ApplicationStatus.INTERVIEWED).length,
+        offered: allApplications.filter(a => a.status === ApplicationStatus.OFFERED).length,
+        accepted: allApplications.filter(a => a.status === ApplicationStatus.ACCEPTED).length,
+        rejected: allApplications.filter(a => a.status === ApplicationStatus.REJECTED).length,
+      };
+
+      stats = {
+        totalApplicants: allApplications.length,
+        skillsVerifiedCount: skillsVerified.length,
+        skillsVerifiedPercentage: allApplications.length > 0
+          ? Math.round((skillsVerified.length / allApplications.length) * 100)
+          : 0,
+        averageSkillsScore: Math.round(avgScore),
+        statusBreakdown: statusCounts,
+      };
+    }
+
     return NextResponse.json({
       applications,
+      stats,
       pagination: {
         page,
         limit,
