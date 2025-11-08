@@ -169,6 +169,7 @@ model Candidate {
   applications      Application[]
   testResults       TestResult[]
   placements        Placement[]
+  savedJobs         SavedJob[]
 
   @@index([userId])
   @@index([availability])
@@ -193,6 +194,12 @@ model Employer {
   verified        Boolean   @default(false)
   stripeCustomerId String?  @unique // Stripe customer ID
   totalSpent      Int       @default(0) // Total amount spent on placements in cents
+
+  // Job claiming tracking
+  claimedJobsCount Int      @default(0)
+  lastClaimDate    DateTime?
+  companyDomain    String?   // Company email domain for matching (e.g., "acme.com")
+
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -206,6 +213,7 @@ model Employer {
   @@index([verified])
   @@index([industry])
   @@index([stripeCustomerId])
+  @@index([companyDomain])
 }
 
 model Job {
@@ -227,6 +235,12 @@ model Job {
   deadline          DateTime?
   slots             Int             @default(1)
   views             Int             @default(0)
+
+  // Job claiming fields
+  isClaimed         Boolean         @default(false)
+  claimedAt         DateTime?
+  claimedBy         String?         // Employer ID who claimed this job
+
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
@@ -234,6 +248,8 @@ model Job {
   employer          Employer        @relation(fields: [employerId], references: [id], onDelete: Cascade)
   applications      Application[]
   placements        Placement[]
+  savedBy           SavedJob[]
+  shares            JobShare[]
 
   @@index([employerId])
   @@index([status])
@@ -241,6 +257,7 @@ model Job {
   @@index([location])
   @@index([experienceLevel])
   @@index([createdAt])
+  @@index([isClaimed])
 }
 
 model Application {
@@ -248,6 +265,8 @@ model Application {
   jobId           String
   candidateId     String
   coverLetter     String?           @db.Text
+  availability    String?           // Candidate's availability (e.g., "Immediate", "2 weeks notice")
+  hearAboutUs     String?           // How did candidate hear about us
   status          ApplicationStatus @default(PENDING)
   appliedAt       DateTime          @default(now())
   reviewedAt      DateTime?
@@ -426,4 +445,40 @@ model BlogPost {
   @@index([status])
   @@index([publishedAt])
   @@index([tags])
+}
+
+model SavedJob {
+  id              String    @id @default(cuid())
+  candidateId     String
+  jobId           String
+  notes           String?   @db.Text // Optional notes from candidate
+  savedAt         DateTime  @default(now())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  candidate       Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  job             Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([candidateId, jobId]) // One save per job per candidate
+  @@index([candidateId])
+  @@index([jobId])
+  @@index([savedAt])
+}
+
+model JobShare {
+  id              String    @id @default(cuid())
+  jobId           String
+  platform        String?   // e.g., "linkedin", "twitter", "email"
+  sharedBy        String?   // User ID who shared (if logged in)
+  ipAddress       String?   // IP address for anonymous shares
+  sharedAt        DateTime  @default(now())
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  job             Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([sharedAt])
+  @@index([platform])
 }

@@ -63,12 +63,13 @@ export async function POST(
       );
     }
 
-    // Check if job is already claimed
-    if (job.employer.userId !== null) {
+    // Check if job is already claimed (using new isClaimed field)
+    if (job.isClaimed || job.employer.userId !== null) {
       return NextResponse.json(
         {
           error: "Job is already claimed",
           claimedBy: job.employer.companyName,
+          claimedAt: job.claimedAt,
         },
         { status: 400 }
       );
@@ -104,6 +105,10 @@ export async function POST(
       where: { id },
       data: {
         employerId: employer.id,
+        // Set claim tracking fields
+        isClaimed: true,
+        claimedAt: new Date(),
+        claimedBy: employer.id,
         // Optionally reset status to DRAFT so employer can review before publishing
         status: JobStatus.DRAFT,
       },
@@ -116,6 +121,15 @@ export async function POST(
             verified: true,
           },
         },
+      },
+    });
+
+    // Update employer's claim statistics
+    await prisma.employer.update({
+      where: { id: employer.id },
+      data: {
+        claimedJobsCount: { increment: 1 },
+        lastClaimDate: new Date(),
       },
     });
 

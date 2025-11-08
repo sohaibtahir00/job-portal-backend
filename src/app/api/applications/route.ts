@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { jobId, coverLetter } = body;
+    const { jobId, coverLetter, availability, hearAboutUs } = body;
 
     // Validate required fields
     if (!jobId) {
@@ -115,6 +115,8 @@ export async function POST(request: NextRequest) {
         jobId,
         candidateId: candidate.id,
         coverLetter,
+        availability,
+        hearAboutUs,
         status: ApplicationStatus.PENDING,
       },
       include: {
