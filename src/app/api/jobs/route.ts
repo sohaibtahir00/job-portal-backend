@@ -7,6 +7,7 @@ import { UserRole, JobStatus, JobType, ExperienceLevel } from "@prisma/client";
  * GET /api/jobs
  * List all active jobs with filters and pagination
  * Public route - no authentication required
+ * If authenticated as candidate, includes applied/saved status and match score
  */
 export async function GET(request: NextRequest) {
   try {
@@ -25,6 +26,7 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search"); // Search in title or description
     const employerId = searchParams.get("employerId");
     const status = searchParams.get("status") as JobStatus | null;
+    const exclusiveOnly = searchParams.get("exclusiveOnly") === "true"; // Filter for exclusive jobs only
 
     // Build where clause
     const where: any = {};
@@ -84,6 +86,32 @@ export async function GET(request: NextRequest) {
       ];
     }
 
+    // Filter for exclusive jobs only (isClaimed = true)
+    if (exclusiveOnly) {
+      where.isClaimed = true;
+    }
+
+    // Check if user is authenticated as candidate
+    let candidate = null;
+    try {
+      const user = await getCurrentUser();
+      if (user) {
+        candidate = await prisma.candidate.findUnique({
+          where: { userId: user.id },
+          select: {
+            id: true,
+            skills: true,
+            preferredJobType: true,
+            location: true,
+            experienceLevel: true,
+            hasTakenTest: true,
+          },
+        });
+      }
+    } catch {
+      // User not authenticated or not a candidate, continue as public
+    }
+
     // Get total count for pagination
     const totalCount = await prisma.job.count({ where });
 
@@ -120,8 +148,101 @@ export async function GET(request: NextRequest) {
     const hasNext = page < totalPages;
     const hasPrev = page > 1;
 
+    // If authenticated as candidate, add applied/saved status and match score
+    let enhancedJobs = jobs;
+    if (candidate) {
+      const jobIds = jobs.map(j => j.id);
+
+      // Get applications for these jobs
+      const applications = await prisma.application.findMany({
+        where: {
+          candidateId: candidate.id,
+          jobId: { in: jobIds },
+        },
+        select: {
+          jobId: true,
+          status: true,
+          appliedAt: true,
+        },
+      });
+      const applicationMap = new Map(applications.map(a => [a.jobId, a]));
+
+      // Get saved jobs
+      const savedJobs = await prisma.savedJob.findMany({
+        where: {
+          candidateId: candidate.id,
+          jobId: { in: jobIds },
+        },
+        select: {
+          jobId: true,
+          savedAt: true,
+        },
+      });
+      const savedJobsSet = new Set(savedJobs.map(sj => sj.jobId));
+
+      // Calculate match score for each job
+      enhancedJobs = jobs.map((job: any) => {
+        const application = applicationMap.get(job.id);
+        const isSaved = savedJobsSet.has(job.id);
+
+        // Calculate match score (0-100)
+        let matchScore = 0;
+        let matchFactors = [];
+
+        // Skills match (40 points)
+        if (candidate.skills && candidate.skills.length > 0 && job.skills && job.skills.length > 0) {
+          const candidateSkills = candidate.skills.map((s: string) => s.toLowerCase());
+          const jobSkills = job.skills.map((s: string) => s.toLowerCase());
+          const matchingSkills = candidateSkills.filter((s: string) => jobSkills.some((js: string) => js.includes(s) || s.includes(js)));
+          const skillMatchPercentage = matchingSkills.length / jobSkills.length;
+          const skillPoints = Math.round(skillMatchPercentage * 40);
+          matchScore += skillPoints;
+          if (skillPoints > 20) matchFactors.push(`${matchingSkills.length} matching skills`);
+        }
+
+        // Job type match (20 points)
+        if (candidate.preferredJobType && candidate.preferredJobType === job.type) {
+          matchScore += 20;
+          matchFactors.push('Preferred job type');
+        }
+
+        // Location match (20 points)
+        if (candidate.location && job.location) {
+          const candidateLoc = candidate.location.toLowerCase();
+          const jobLoc = job.location.toLowerCase();
+          if (jobLoc.includes(candidateLoc) || candidateLoc.includes(jobLoc)) {
+            matchScore += 20;
+            matchFactors.push('Location match');
+          }
+        }
+
+        // Remote preference (10 points)
+        if (job.remote) {
+          matchScore += 10;
+          matchFactors.push('Remote position');
+        }
+
+        // Skills assessment bonus (10 points)
+        if (candidate.hasTakenTest && job.isClaimed) {
+          matchScore += 10;
+          matchFactors.push('Exclusive access');
+        }
+
+        return {
+          ...job,
+          // Candidate-specific fields
+          hasApplied: !!application,
+          isSaved,
+          applicationStatus: application?.status || null,
+          appliedAt: application?.appliedAt || null,
+          matchScore: Math.min(matchScore, 100),
+          matchFactors,
+        };
+      });
+    }
+
     return NextResponse.json({
-      jobs,
+      jobs: enhancedJobs,
       pagination: {
         page,
         limit,
@@ -130,6 +251,9 @@ export async function GET(request: NextRequest) {
         hasNext,
         hasPrev,
       },
+      candidateInfo: candidate ? {
+        hasCompletedAssessment: candidate.hasTakenTest,
+      } : null,
     });
   } catch (error) {
     console.error("Jobs listing error:", error);
