@@ -197,3 +197,74 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+/**
+ * DELETE /api/candidates/saved-jobs
+ * Clear all saved jobs for the current candidate
+ *
+ * Requires CANDIDATE role
+ */
+export async function DELETE(request: NextRequest) {
+  try {
+    // Require candidate role
+    await requireRole(UserRole.CANDIDATE);
+
+    const user = await getCurrentUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "User not found" },
+        { status: 404 }
+      );
+    }
+
+    // Get candidate profile
+    const candidate = await prisma.candidate.findUnique({
+      where: { userId: user.id },
+    });
+
+    if (!candidate) {
+      return NextResponse.json(
+        { error: "Candidate profile not found" },
+        { status: 404 }
+      );
+    }
+
+    // Delete all saved jobs for this candidate
+    const result = await prisma.savedJob.deleteMany({
+      where: {
+        candidateId: candidate.id,
+      },
+    });
+
+    return NextResponse.json({
+      message: "All saved jobs cleared successfully",
+      count: result.count,
+    });
+  } catch (error) {
+    console.error("Clear saved jobs error:", error);
+
+    if (error instanceof Error) {
+      if (error.message.includes("Unauthorized")) {
+        return NextResponse.json(
+          { error: "Authentication required" },
+          { status: 401 }
+        );
+      }
+      if (error.message.includes("Forbidden")) {
+        return NextResponse.json(
+          { error: "Insufficient permissions. Candidate role required." },
+          { status: 403 }
+        );
+      }
+    }
+
+    return NextResponse.json(
+      {
+        error: "Failed to clear saved jobs",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 }
+    );
+  }
+}
