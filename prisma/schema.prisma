@@ -136,6 +136,7 @@ model Candidate {
   phone             String?
   resume            String?   // URL to resume file
   portfolio         String?   // URL to portfolio
+  personalWebsite   String?   // Personal website URL
   linkedIn          String?
   github            String?
   bio               String?   @db.Text
@@ -146,6 +147,14 @@ model Candidate {
   preferredJobType  JobType?
   expectedSalary    Int?
   availability      Boolean   @default(true)
+
+  // Enhanced job preferences
+  desiredRoles      String[]  @default([])
+  nicheCategory     String?   // AI_ML, HEALTHCARE_IT, FINTECH, CYBERSECURITY
+  remotePreference  String?   // REMOTE, HYBRID, ONSITE
+  startDateAvailability DateTime?
+  openToContract    Boolean   @default(false)
+  willingToRelocate Boolean   @default(false)
 
   // Skills testing fields
   hasTakenTest      Boolean   @default(false)
@@ -170,6 +179,8 @@ model Candidate {
   testResults       TestResult[]
   placements        Placement[]
   savedJobs         SavedJob[]
+  workExperiences   WorkExperience[]
+  educationEntries  Education[]
 
   @@index([userId])
   @@index([availability])
@@ -481,4 +492,43 @@ model JobShare {
   @@index([jobId])
   @@index([sharedAt])
   @@index([platform])
+}
+
+model WorkExperience {
+  id              String    @id @default(cuid())
+  candidateId     String
+  companyName     String
+  jobTitle        String
+  startDate       DateTime
+  endDate         DateTime?
+  isCurrent       Boolean   @default(false)
+  description     String?   @db.Text
+  location        String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  candidate       Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([candidateId])
+  @@index([startDate])
+}
+
+model Education {
+  id              String    @id @default(cuid())
+  candidateId     String
+  schoolName      String
+  degree          String
+  fieldOfStudy    String
+  graduationYear  Int
+  gpa             Float?
+  description     String?   @db.Text
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  candidate       Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([candidateId])
+  @@index([graduationYear])
 }

@@ -61,6 +61,16 @@ export async function GET() {
             startDate: "desc",
           },
         },
+        workExperiences: {
+          orderBy: {
+            startDate: "desc",
+          },
+        },
+        educationEntries: {
+          orderBy: {
+            graduationYear: "desc",
+          },
+        },
       },
     });
 
@@ -252,6 +262,7 @@ export async function PATCH(request: NextRequest) {
       phone,
       resume,
       portfolio,
+      personalWebsite,
       linkedIn,
       github,
       bio,
@@ -262,6 +273,12 @@ export async function PATCH(request: NextRequest) {
       preferredJobType,
       expectedSalary,
       availability,
+      desiredRoles,
+      nicheCategory,
+      remotePreference,
+      startDateAvailability,
+      openToContract,
+      willingToRelocate,
     } = body;
 
     // Validate job type if provided
@@ -278,6 +295,7 @@ export async function PATCH(request: NextRequest) {
     if (phone !== undefined) updateData.phone = phone;
     if (resume !== undefined) updateData.resume = resume;
     if (portfolio !== undefined) updateData.portfolio = portfolio;
+    if (personalWebsite !== undefined) updateData.personalWebsite = personalWebsite;
     if (linkedIn !== undefined) updateData.linkedIn = linkedIn;
     if (github !== undefined) updateData.github = github;
     if (bio !== undefined) updateData.bio = bio;
@@ -288,6 +306,12 @@ export async function PATCH(request: NextRequest) {
     if (preferredJobType !== undefined) updateData.preferredJobType = preferredJobType;
     if (expectedSalary !== undefined) updateData.expectedSalary = expectedSalary;
     if (availability !== undefined) updateData.availability = availability;
+    if (desiredRoles !== undefined) updateData.desiredRoles = desiredRoles;
+    if (nicheCategory !== undefined) updateData.nicheCategory = nicheCategory;
+    if (remotePreference !== undefined) updateData.remotePreference = remotePreference;
+    if (startDateAvailability !== undefined) updateData.startDateAvailability = startDateAvailability ? new Date(startDateAvailability) : null;
+    if (openToContract !== undefined) updateData.openToContract = openToContract;
+    if (willingToRelocate !== undefined) updateData.willingToRelocate = willingToRelocate;
 
     // Update candidate profile
     const updatedCandidate = await prisma.candidate.update({
