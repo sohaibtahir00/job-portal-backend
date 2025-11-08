@@ -52,33 +52,45 @@ export function calculateProfileCompletion(candidate: Partial<Candidate>): numbe
 /**
  * Get profile completion status and missing fields
  */
-export function getProfileCompletionStatus(candidate: Partial<Candidate>) {
-  const percentage = calculateProfileCompletion(candidate);
+export function getProfileCompletionStatus(candidate: any) {
+  try {
+    const percentage = calculateProfileCompletion(candidate);
 
-  const missingFields: string[] = [];
+    const missingFields: string[] = [];
 
-  // Check critical fields
-  if (!candidate.resume) missingFields.push("resume");
-  if (!candidate.bio) missingFields.push("bio");
-  if (!candidate.skills || candidate.skills.length === 0) missingFields.push("skills");
-  if (!candidate.education) missingFields.push("education");
-  if (!candidate.location) missingFields.push("location");
+    // Check critical fields
+    if (!candidate.resume) missingFields.push("resume");
+    if (!candidate.bio) missingFields.push("bio");
+    if (!candidate.skills || !Array.isArray(candidate.skills) || candidate.skills.length === 0) {
+      missingFields.push("skills");
+    }
+    if (!candidate.education) missingFields.push("education");
+    if (!candidate.location) missingFields.push("location");
 
-  // Determine status
-  let status: "incomplete" | "basic" | "good" | "excellent";
-  if (percentage < 30) {
-    status = "incomplete";
-  } else if (percentage < 60) {
-    status = "basic";
-  } else if (percentage < 90) {
-    status = "good";
-  } else {
-    status = "excellent";
+    // Determine status
+    let status: "incomplete" | "basic" | "good" | "excellent";
+    if (percentage < 30) {
+      status = "incomplete";
+    } else if (percentage < 60) {
+      status = "basic";
+    } else if (percentage < 90) {
+      status = "good";
+    } else {
+      status = "excellent";
+    }
+
+    return {
+      percentage,
+      status,
+      missingFields,
+    };
+  } catch (error) {
+    console.error("[Profile Completion] Error calculating completion status:", error);
+    // Return safe defaults if calculation fails
+    return {
+      percentage: 0,
+      status: "incomplete" as const,
+      missingFields: ["resume", "bio", "skills", "education", "location"],
+    };
   }
-
-  return {
-    percentage,
-    status,
-    missingFields,
-  };
 }

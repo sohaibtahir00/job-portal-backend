@@ -90,6 +90,11 @@ export async function GET() {
     });
   } catch (error) {
     console.error("Candidate profile fetch error:", error);
+    console.error("Error details:", {
+      message: error instanceof Error ? error.message : "Unknown error",
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : undefined,
+    });
 
     if (error instanceof Error) {
       if (error.message.includes("Unauthorized")) {
@@ -107,7 +112,10 @@ export async function GET() {
     }
 
     return NextResponse.json(
-      { error: "Failed to fetch candidate profile" },
+      {
+        error: "Failed to fetch candidate profile",
+        details: error instanceof Error ? error.message : "Unknown error"
+      },
       { status: 500 }
     );
   }
