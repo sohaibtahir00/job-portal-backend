@@ -75,30 +75,27 @@ export async function POST(
       );
     }
 
-    // Verify the employer claiming the job matches company details
-    // This is a security measure to ensure employers only claim their own company's jobs
+    // Get claim form data from request body
     const body = await request.json();
-    const { verificationCode } = body;
+    const {
+      phone,
+      roleLevel,
+      salaryMin,
+      salaryMax,
+      startDateNeeded,
+      candidatesNeeded,
+    } = body;
 
-    // In a real implementation, you might want to:
-    // 1. Send a verification email to the company domain
-    // 2. Require the employer to provide proof of employment
-    // 3. Use a verification code or token system
-    // For now, we'll use a simple verification code system
-
-    if (!verificationCode) {
+    // Validate required fields
+    if (!phone || !roleLevel) {
       return NextResponse.json(
         {
-          error: "Verification code required",
-          message: "Please provide a verification code to claim this job. Contact support if you need assistance.",
+          error: "Missing required fields",
+          message: "Phone number and role level are required to claim this job.",
         },
         { status: 400 }
       );
     }
-
-    // In production, you would validate the verification code here
-    // For this example, we'll accept any non-empty code
-    // TODO: Implement proper verification code validation
 
     // Transfer ownership of the job to the claiming employer
     const claimedJob = await prisma.job.update({
@@ -109,8 +106,13 @@ export async function POST(
         isClaimed: true,
         claimedAt: new Date(),
         claimedBy: employer.id,
-        // Optionally reset status to DRAFT so employer can review before publishing
-        status: JobStatus.DRAFT,
+        // Update job details from claim form
+        experienceLevel: roleLevel,
+        salaryMin: salaryMin ? parseInt(salaryMin) : job.salaryMin,
+        salaryMax: salaryMax ? parseInt(salaryMax) : job.salaryMax,
+        startDateNeeded: startDateNeeded ? new Date(startDateNeeded) : null,
+        // Keep status as ACTIVE so candidates can continue applying
+        status: JobStatus.ACTIVE,
       },
       include: {
         employer: {
@@ -119,6 +121,11 @@ export async function POST(
             companyName: true,
             companyLogo: true,
             verified: true,
+          },
+        },
+        _count: {
+          select: {
+            applications: true,
           },
         },
       },
@@ -133,14 +140,49 @@ export async function POST(
       },
     });
 
+    // Store claim metadata (phone, candidates needed) in a separate table or as JSON
+    // For now, we'll return it in the response
+    const claimMetadata = {
+      phone,
+      candidatesNeeded: candidatesNeeded || 10,
+      claimedBy: employer.id,
+      claimedAt: new Date(),
+    };
+
     // Create a notification or audit log entry
     // In a production system, you'd want to track this action
     // TODO: Implement audit logging for job claims
 
+    // Get skills-verified applicants count
+    const applications = await prisma.application.findMany({
+      where: { jobId: id },
+      include: {
+        candidate: {
+          select: {
+            hasTakenTest: true,
+            testScore: true,
+          },
+        },
+      },
+    });
+
+    const skillsVerifiedCount = applications.filter(
+      (app) => app.candidate.hasTakenTest && app.candidate.testScore !== null
+    ).length;
+
     return NextResponse.json({
-      message: "Job claimed successfully. Please review and publish when ready.",
+      message: "Job claimed successfully! We'll call you within 24 hours to discuss qualified candidates.",
       job: claimedJob,
-      notice: "The job status has been set to DRAFT. You can update it and set to ACTIVE when ready.",
+      claimMetadata,
+      stats: {
+        totalApplicants: claimedJob._count.applications,
+        skillsVerifiedApplicants: skillsVerifiedCount,
+      },
+      nextSteps: [
+        "Our team will call you within 24 hours",
+        `We'll show you the top ${candidatesNeeded || 10} qualified candidates immediately`,
+        "You'll see their Skills Score Cards and full profiles",
+      ],
     });
   } catch (error) {
     console.error("Job claim error:", error);
