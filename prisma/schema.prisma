@@ -111,6 +111,7 @@ model User {
   name          String
   role          UserRole    @default(CANDIDATE)
   status        UserStatus  @default(ACTIVE)
+  isActive      Boolean     @default(true)
   emailVerified DateTime?
   image         String?
   createdAt     DateTime    @default(now())
@@ -181,6 +182,7 @@ model Candidate {
   savedJobs         SavedJob[]
   workExperiences   WorkExperience[]
   educationEntries  Education[]
+  skillsAssessments SkillsAssessment[]
 
   @@index([userId])
   @@index([availability])
@@ -316,6 +318,7 @@ model Application {
   job             Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
   candidate       Candidate         @relation(fields: [candidateId], references: [id], onDelete: Cascade)
   testResults     TestResult[]
+  interviews      Interview[]
 
   @@unique([jobId, candidateId]) // One application per job per candidate
   @@index([jobId])
@@ -558,4 +561,64 @@ model Education {
 
   @@index([candidateId])
   @@index([graduationYear])
+}
+
+model SkillsAssessment {
+  id              String    @id @default(cuid())
+  candidateId     String
+  score           Int       // Overall score (0-100)
+  tier            String    // Elite, Advanced, Proficient, Intermediate, Beginner
+  answers         String    @db.Text // JSON string of answers
+  duration        Int       // Duration in seconds
+  sectionScores   String    @db.Text // JSON string of section scores
+  completedAt     DateTime
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  candidate       Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([candidateId])
+  @@index([score])
+  @@index([tier])
+  @@index([completedAt])
+}
+
+enum InterviewStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  RESCHEDULED
+}
+
+enum InterviewType {
+  PHONE
+  VIDEO
+  ONSITE
+}
+
+model Interview {
+  id              String          @id @default(cuid())
+  applicationId   String
+  candidateId     String
+  employerId      String
+  scheduledAt     DateTime
+  duration        Int             // Duration in minutes
+  type            InterviewType
+  status          InterviewStatus @default(SCHEDULED)
+  location        String?         // For onsite interviews
+  meetingLink     String?         // For video interviews
+  notes           String?         @db.Text
+  feedback        String?         @db.Text
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  // Relations
+  application     Application     @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@index([candidateId])
+  @@index([employerId])
+  @@index([scheduledAt])
+  @@index([status])
 }
