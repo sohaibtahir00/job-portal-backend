@@ -11,10 +11,10 @@ import { UserRole, JobStatus, JobType, ExperienceLevel } from "@prisma/client";
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     const job = await prisma.job.findUnique({
       where: { id },
@@ -143,7 +143,7 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Require employer or admin role
@@ -158,7 +158,7 @@ export async function PATCH(
       );
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     // Check if job exists
     const existingJob = await prisma.job.findUnique({
@@ -318,7 +318,7 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Require employer or admin role
@@ -333,7 +333,7 @@ export async function DELETE(
       );
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     // Check if job exists
     const existingJob = await prisma.job.findUnique({
