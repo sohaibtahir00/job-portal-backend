@@ -125,6 +125,8 @@ model User {
   referrals     Referral[]  @relation("UserReferrals")
   referredBy    Referral[]  @relation("ReferredUsers")
   blogPosts     BlogPost[]
+  notifications Notification[]
+  passwordResetTokens PasswordResetToken[]
 
   @@index([email])
   @@index([role])
@@ -263,6 +265,7 @@ model Job {
   minSkillsScore    Int?           // Minimum score required (0-100)
   requiredTier      String?        // Any, Competent+, Proficient+, Advanced+, Expert
   customAssessmentQuestions Json?  // Array of custom questions
+  isExclusive       Boolean         @default(false) // Only for skills-verified candidates
 
   // Interview Process
   interviewRounds   Int?           // Number of interview rounds
@@ -621,4 +624,113 @@ model Interview {
   @@index([employerId])
   @@index([scheduledAt])
   @@index([status])
+}
+
+// Newsletter Subscriptions
+model Newsletter {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  subscribedAt DateTime @default(now())
+  isActive     Boolean  @default(true)
+  unsubscribedAt DateTime?
+
+  @@index([email])
+  @@index([subscribedAt])
+  @@index([isActive])
+}
+
+// Notification Types
+enum NotificationType {
+  APPLICATION_UPDATE
+  MESSAGE_RECEIVED
+  INTERVIEW_SCHEDULED
+  ASSESSMENT_COMPLETED
+  JOB_MATCH
+  PLACEMENT_UPDATE
+  SYSTEM_ANNOUNCEMENT
+}
+
+// User Notifications
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String           @db.Text
+  link      String?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@index([type])
+}
+
+// Resource Types
+enum ResourceType {
+  PDF
+  VIDEO
+  ARTICLE
+  TEMPLATE
+  GUIDE
+  WEBINAR
+}
+
+// Resources/Downloads
+model Resource {
+  id          String       @id @default(cuid())
+  title       String
+  description String       @db.Text
+  type        ResourceType
+  fileUrl     String?
+  externalUrl String?
+  thumbnail   String?
+  downloads   Int          @default(0)
+  published   Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([type])
+  @@index([published])
+}
+
+// Marketing Campaigns
+model Campaign {
+  id          String    @id @default(cuid())
+  name        String
+  type        String // "CLAIM_JOB", "SKILLS_TEST", "REFERRAL", etc.
+  description String?   @db.Text
+  startDate   DateTime
+  endDate     DateTime?
+  impressions Int       @default(0)
+  clicks      Int       @default(0)
+  conversions Int       @default(0)
+  budget      Float?
+  spent       Float     @default(0)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([type])
+  @@index([isActive])
+  @@index([startDate])
+}
+
+// Password Reset Tokens
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@index([expiresAt])
 }
