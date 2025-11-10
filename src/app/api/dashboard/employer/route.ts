@@ -155,8 +155,9 @@ export async function GET(request: NextRequest) {
       });
 
     // Top performing jobs (by application count)
+    // Show both ACTIVE and DRAFT jobs so employers can see their newly created jobs
     const topJobs = employer.jobs
-      .filter((j) => j.status === JobStatus.ACTIVE)
+      .filter((j) => j.status === JobStatus.ACTIVE || j.status === JobStatus.DRAFT)
       .sort((a, b) => b._count.applications - a._count.applications)
       .slice(0, 5)
       .map((job) => ({
