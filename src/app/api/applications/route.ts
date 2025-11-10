@@ -268,45 +268,76 @@ export async function GET(request: NextRequest) {
       where.candidateId = candidate.id;
     } else if (user.role === UserRole.EMPLOYER) {
       // Employers see applications for their jobs
+      console.log("🔍 [GET /api/applications] Looking for employer with userId:", user.id);
+      console.log("🔍 [GET /api/applications] User data:", JSON.stringify({ id: user.id, email: user.email, role: user.role }, null, 2));
+
       const employer = await prisma.employer.findUnique({
         where: { userId: user.id },
         include: {
           jobs: {
             select: {
               id: true,
+              title: true,
             },
           },
         },
       });
 
+      console.log("📦 [GET /api/applications] Employer found:", employer ? "YES" : "NO");
+      if (employer) {
+        console.log("📦 [GET /api/applications] Employer data:", JSON.stringify({
+          id: employer.id,
+          userId: employer.userId,
+          companyName: employer.companyName,
+          jobCount: employer.jobs.length
+        }, null, 2));
+      }
+
       if (!employer) {
+        console.log("❌ [GET /api/applications] No employer profile found for userId:", user.id);
         return NextResponse.json(
-          { error: "Employer profile not found" },
+          { error: "Employer profile not found. Please complete your onboarding." },
           { status: 404 }
         );
       }
 
       const jobIds = employer.jobs.map(job => job.id);
 
-      console.log("[GET /api/applications] Employer ID:", employer.id);
-      console.log("[GET /api/applications] Employer's job IDs:", jobIds);
-      console.log("[GET /api/applications] Requested jobId:", jobId);
+      console.log("📋 [GET /api/applications] Employer ID:", employer.id);
+      console.log("📋 [GET /api/applications] Employer's job IDs:", jobIds);
+      console.log("📋 [GET /api/applications] Job details:", employer.jobs.map(j => ({ id: j.id, title: j.title })));
+      console.log("🎯 [GET /api/applications] Requested jobId:", jobId);
+      console.log("✅ [GET /api/applications] Job ownership check:", jobId ? (jobIds.includes(jobId) ? "PASS ✓" : "FAIL ✗") : "N/A (no specific job)");
 
       // If specific jobId requested, verify employer owns it
       if (jobId) {
         if (!jobIds.includes(jobId)) {
-          console.log("[GET /api/applications] ❌ 403 - Employer doesn't own this job");
-          console.log("[GET /api/applications] JobId:", jobId, "not in", jobIds);
+          console.log("❌ [GET /api/applications] 403 - Employer doesn't own this job");
+          console.log("📊 [GET /api/applications] Available jobs:", jobIds);
+          console.log("🔍 [GET /api/applications] Requested job:", jobId);
+          console.log("🔍 [GET /api/applications] Comparison check:");
+          jobIds.forEach((id, index) => {
+            console.log(`   Job ${index + 1}: "${id}" === "${jobId}" ? ${id === jobId}`);
+          });
+
           return NextResponse.json(
-            { error: "Job not found or you don't have access to this job" },
+            {
+              error: "Job not found or you don't have access to this job",
+              debug: {
+                requestedJobId: jobId,
+                yourJobIds: jobIds,
+                employerId: employer.id,
+                userId: user.id
+              }
+            },
             { status: 403 }
           );
         }
-        console.log("[GET /api/applications] ✅ Employer owns job, filtering by jobId:", jobId);
+        console.log("✅ [GET /api/applications] Ownership check passed! Filtering by jobId:", jobId);
         where.jobId = jobId;
       } else {
         // No specific job, show all employer's jobs
-        console.log("[GET /api/applications] No specific job requested, showing all employer jobs");
+        console.log("✅ [GET /api/applications] No specific job requested, showing all employer jobs");
         where.jobId = { in: jobIds };
       }
     } else {
