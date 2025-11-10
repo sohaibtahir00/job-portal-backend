@@ -287,18 +287,39 @@ export async function GET(request: NextRequest) {
       }
 
       const jobIds = employer.jobs.map(job => job.id);
-      where.jobId = { in: jobIds };
+
+      console.log("[GET /api/applications] Employer ID:", employer.id);
+      console.log("[GET /api/applications] Employer's job IDs:", jobIds);
+      console.log("[GET /api/applications] Requested jobId:", jobId);
+
+      // If specific jobId requested, verify employer owns it
+      if (jobId) {
+        if (!jobIds.includes(jobId)) {
+          console.log("[GET /api/applications] ❌ 403 - Employer doesn't own this job");
+          console.log("[GET /api/applications] JobId:", jobId, "not in", jobIds);
+          return NextResponse.json(
+            { error: "Job not found or you don't have access to this job" },
+            { status: 403 }
+          );
+        }
+        console.log("[GET /api/applications] ✅ Employer owns job, filtering by jobId:", jobId);
+        where.jobId = jobId;
+      } else {
+        // No specific job, show all employer's jobs
+        console.log("[GET /api/applications] No specific job requested, showing all employer jobs");
+        where.jobId = { in: jobIds };
+      }
+    } else {
+      // Admins see all applications (no additional filter)
+      // Apply job filter if provided for admins
+      if (jobId) {
+        where.jobId = jobId;
+      }
     }
-    // Admins see all applications (no additional filter)
 
     // Apply status filter if provided
     if (status && Object.values(ApplicationStatus).includes(status)) {
       where.status = status;
-    }
-
-    // Apply job filter if provided
-    if (jobId) {
-      where.jobId = jobId;
     }
 
     // Apply skills filter if provided
