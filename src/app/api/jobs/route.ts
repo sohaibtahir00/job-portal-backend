@@ -416,7 +416,7 @@ export async function POST(request: NextRequest) {
         // Application Settings
         maxApplicants,
         screeningQuestions,
-        status: JobStatus.DRAFT, // Always starts as DRAFT
+        status: JobStatus.ACTIVE, // Jobs are immediately posted as ACTIVE
       },
       include: {
         employer: {
@@ -432,7 +432,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       {
-        message: "Job created successfully as DRAFT. You can publish it later.",
+        message: "Job posted successfully! Your job is now live and accepting applications.",
         job,
       },
       { status: 201 }
