@@ -224,6 +224,10 @@ export async function POST(request: NextRequest) {
  * Requires authentication
  */
 export async function GET(request: NextRequest) {
+  console.log('🚨🚨🚨 [APPLICATIONS] GET request received! URL:', request.url);
+  console.log('🚨🚨🚨 [APPLICATIONS] Query params:', request.nextUrl.searchParams.toString());
+  console.log('🚨🚨🚨 [APPLICATIONS] All params:', Object.fromEntries(request.nextUrl.searchParams.entries()));
+
   try {
     await requireAnyRole([UserRole.CANDIDATE, UserRole.EMPLOYER, UserRole.ADMIN]);
 
