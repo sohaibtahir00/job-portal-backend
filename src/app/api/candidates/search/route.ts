@@ -37,6 +37,8 @@ import { UserRole, JobType } from "@prisma/client";
  * Authentication: Required (EMPLOYER or ADMIN role)
  */
 export async function GET(request: NextRequest) {
+  console.log('🔍 [CANDIDATES/SEARCH] GET request received!');
+
   try {
     // Require employer or admin role
     await requireAnyRole([UserRole.EMPLOYER, UserRole.ADMIN]);
@@ -50,7 +52,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    console.log('✅ [CANDIDATES/SEARCH] User authenticated:', user.email, 'Role:', user.role);
+
     const { searchParams } = new URL(request.url);
+    console.log('📋 [CANDIDATES/SEARCH] Search params:', Object.fromEntries(searchParams.entries()));
 
     // Extract search parameters
     const searchQuery = searchParams.get("q");
@@ -87,6 +92,8 @@ export async function GET(request: NextRequest) {
     // Build where clause
     const where: any = {};
 
+    console.log('🔧 [CANDIDATES/SEARCH] Building where clause...');
+
     // Full-text search on name, bio, education
     if (searchQuery) {
       where.OR = [
@@ -94,6 +101,7 @@ export async function GET(request: NextRequest) {
         { bio: { contains: searchQuery, mode: "insensitive" } },
         { education: { contains: searchQuery, mode: "insensitive" } },
       ];
+      console.log('🔍 [CANDIDATES/SEARCH] Added search query filter:', searchQuery);
     }
 
     // Skills filter - matches ANY of the specified skills
@@ -204,6 +212,9 @@ export async function GET(request: NextRequest) {
         break;
     }
 
+    console.log('📦 [CANDIDATES/SEARCH] Final where clause:', JSON.stringify(where, null, 2));
+    console.log('📊 [CANDIDATES/SEARCH] OrderBy:', JSON.stringify(orderBy, null, 2));
+
     // Fetch candidates with cursor-based pagination
     const candidates = await prisma.candidate.findMany({
       where,
@@ -231,6 +242,18 @@ export async function GET(request: NextRequest) {
         cursor: cursorCondition,
       }),
     });
+
+    console.log('✅ [CANDIDATES/SEARCH] Found', candidates.length, 'candidates');
+    console.log('👥 [CANDIDATES/SEARCH] Candidate details:', candidates.map(c => ({
+      id: c.id,
+      name: c.user.name || c.user.email,
+      email: c.user.email,
+      status: c.user.status,
+      hasTakenTest: c.hasTakenTest,
+      testScore: c.testScore,
+      skills: c.skills,
+      location: c.location,
+    })));
 
     // Determine if there are more results
     const hasMore = candidates.length > limit;
