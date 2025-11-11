@@ -37,7 +37,8 @@ import { UserRole, JobType } from "@prisma/client";
  * Authentication: Required (EMPLOYER or ADMIN role)
  */
 export async function GET(request: NextRequest) {
-  console.log('🔍 [CANDIDATES/SEARCH] GET request received!');
+  console.log('🔍 [CANDIDATES/SEARCH] GET request received! v2');
+  console.log('🔍 [CANDIDATES/SEARCH] Required roles: EMPLOYER, ADMIN');
 
   try {
     // Require employer or admin role
