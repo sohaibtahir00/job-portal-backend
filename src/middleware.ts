@@ -130,7 +130,10 @@ export async function middleware(request: NextRequest) {
     }
 
     // Find matching protected route
-    for (const [route, allowedRoles] of Object.entries(protectedRoutes)) {
+    // Sort routes by length (longest first) to match most specific routes first
+    const sortedRoutes = Object.entries(protectedRoutes).sort(([a], [b]) => b.length - a.length);
+
+    for (const [route, allowedRoles] of sortedRoutes) {
       if (pathname.startsWith(route)) {
         // Check if user has required role
         if (!allowedRoles.includes(currentUserRole)) {
