@@ -43,10 +43,28 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get("status");
     const applicationId = searchParams.get("applicationId");
 
+    // First, get the Candidate or Employer record for this user
+    let userRecord = null;
+    if (user.role === "CANDIDATE") {
+      userRecord = await prisma.candidate.findUnique({
+        where: { userId: user.id },
+        select: { id: true },
+      });
+    } else if (user.role === "EMPLOYER") {
+      userRecord = await prisma.employer.findUnique({
+        where: { userId: user.id },
+        select: { id: true },
+      });
+    }
+
+    if (!userRecord) {
+      return NextResponse.json({ error: "User profile not found" }, { status: 404 });
+    }
+
     const whereClause: any = {
       ...(user.role === "CANDIDATE"
-        ? { application: { candidate: { userId: user.id } } }
-        : { application: { job: { employer: { userId: user.id } } } }),
+        ? { candidateId: userRecord.id }
+        : { employerId: userRecord.id }),
     };
 
     if (status && status !== "all") {
@@ -81,7 +99,7 @@ export async function GET(req: NextRequest) {
           },
         },
       },
-      orderBy: { scheduledAt: "asc" },
+      orderBy: { createdAt: "desc" }, // Changed from scheduledAt to createdAt since scheduledAt can be null
     });
 
     return NextResponse.json({ interviews });
