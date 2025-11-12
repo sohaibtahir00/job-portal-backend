@@ -384,19 +384,15 @@ export async function GET(request: NextRequest) {
     // Get total count
     const totalCount = await prisma.application.count({ where });
 
-    // Determine sort order
+    // Determine sort order - only use simple sorting to avoid null issues
     let orderBy: any = { appliedAt: "desc" }; // default: most recent
-    if (sortBy === "skillsScore") {
-      orderBy = [
-        { candidate: { testScore: "desc" } },
-        { appliedAt: "desc" },
-      ];
-    } else if (sortBy === "applicationDate") {
+    if (sortBy === "applicationDate") {
       orderBy = { appliedAt: "asc" };
     }
+    // Skip skillsScore sorting for now to avoid issues with null values
     // bestMatch would require complex calculation, default to recent for now
 
-    // Fetch applications
+    // Fetch applications with simplified query
     const applications = await prisma.application.findMany({
       where,
       include: {
