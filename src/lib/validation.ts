@@ -65,8 +65,6 @@ export const signUpSchema = z.object({
   companyWebsite: urlSchema,
   industry: z.string().max(100).optional(),
   companySize: z.string().max(50).optional(),
-  // Referral
-  referralCode: z.string().optional(),
 });
 
 export const signInSchema = z.object({
@@ -252,17 +250,6 @@ export const messageSearchSchema = z.object({
 });
 
 // ===========================
-// Referral Schemas
-// ===========================
-
-export const applyReferralSchema = z.object({
-  referralCode: z
-    .string()
-    .regex(/^REF[A-Z0-9]{8}$/, "Invalid referral code format")
-    .optional(),
-});
-
-// ===========================
 // Admin Schemas
 // ===========================
 
@@ -409,9 +396,6 @@ export default {
   // Messages
   sendMessageSchema,
   messageSearchSchema,
-
-  // Referrals
-  applyReferralSchema,
 
   // Admin
   approveJobSchema,

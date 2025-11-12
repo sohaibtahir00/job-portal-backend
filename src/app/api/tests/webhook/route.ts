@@ -200,15 +200,6 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Process referral reward if applicable
-    try {
-      const { processReferralReward } = await import("@/lib/referral");
-      await processReferralReward(candidate.userId);
-    } catch (referralError) {
-      console.error("Failed to process referral reward:", referralError);
-      // Don't fail the webhook if referral processing fails
-    }
-
     // Send confirmation email to candidate
     const tierBadge = getTierBadgeHTML(tier);
     const tierDescription = getTierDescription(tier);
