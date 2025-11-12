@@ -435,20 +435,6 @@ export async function GET(request: NextRequest) {
             },
           },
         },
-        testResults: {
-          select: {
-            id: true,
-            testName: true,
-            score: true,
-            maxScore: true,
-            status: true,
-            category: true,
-          },
-          orderBy: {
-            completedAt: "desc",
-          },
-          take: 5, // Top 5 test results
-        },
       },
       orderBy,
       skip,
