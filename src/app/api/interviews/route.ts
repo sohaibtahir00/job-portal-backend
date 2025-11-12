@@ -43,29 +43,25 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get("status");
     const applicationId = searchParams.get("applicationId");
 
-    // First, get the Candidate or Employer record for this user
-    let userRecord = null;
+    // Build where clause - we need to filter through the application relation
+    const whereClause: any = {};
+
+    // Filter by user role
     if (user.role === "CANDIDATE") {
-      userRecord = await prisma.candidate.findUnique({
-        where: { userId: user.id },
-        select: { id: true },
-      });
+      whereClause.application = {
+        candidate: {
+          userId: user.id
+        }
+      };
     } else if (user.role === "EMPLOYER") {
-      userRecord = await prisma.employer.findUnique({
-        where: { userId: user.id },
-        select: { id: true },
-      });
+      whereClause.application = {
+        job: {
+          employer: {
+            userId: user.id
+          }
+        }
+      };
     }
-
-    if (!userRecord) {
-      return NextResponse.json({ error: "User profile not found" }, { status: 404 });
-    }
-
-    const whereClause: any = {
-      ...(user.role === "CANDIDATE"
-        ? { candidateId: userRecord.id }
-        : { employerId: userRecord.id }),
-    };
 
     if (status && status !== "all") {
       whereClause.status = status.toUpperCase();
