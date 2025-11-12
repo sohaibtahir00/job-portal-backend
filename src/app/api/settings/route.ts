@@ -1,19 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import prisma from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
 // GET /api/settings - Get user settings
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const user = await getCurrentUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+    const userSettings = await prisma.user.findUnique({
+      where: { id: user.id },
       select: {
         name: true,
         email: true,
@@ -23,7 +26,7 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({ settings: user });
+    return NextResponse.json({ settings: userSettings });
   } catch (error) {
     console.error("Get settings error:", error);
     return NextResponse.json(
@@ -36,9 +39,13 @@ export async function GET(req: NextRequest) {
 // PATCH /api/settings - Update user settings
 export async function PATCH(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const user = await getCurrentUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
     }
 
     const updates = await req.json();
@@ -48,12 +55,12 @@ export async function PATCH(req: NextRequest) {
     delete updates.role;
     delete updates.createdAt;
 
-    const user = await prisma.user.update({
-      where: { id: session.user.id },
+    const updatedUser = await prisma.user.update({
+      where: { id: user.id },
       data: updates,
     });
 
-    return NextResponse.json({ success: true, user });
+    return NextResponse.json({ success: true, user: updatedUser });
   } catch (error) {
     console.error("Update settings error:", error);
     return NextResponse.json(
@@ -116,17 +123,21 @@ export async function POST(req: NextRequest) {
 // DELETE /api/settings - Delete account
 export async function DELETE(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const user = await getCurrentUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
     }
 
     // Soft delete - mark as inactive
     await prisma.user.update({
-      where: { id: session.user.id },
+      where: { id: user.id },
       data: {
         isActive: false,
-        email: `deleted_${Date.now()}_${session.user.email}`,
+        email: `deleted_${Date.now()}_${user.email}`,
       },
     });
 
