@@ -236,7 +236,7 @@ export async function POST(request: NextRequest) {
 
 /**
  * PATCH /api/candidates/profile
- * Update candidate profile
+ * Update candidate profile (creates if doesn't exist - upsert pattern)
  * Requires CANDIDATE or ADMIN role
  */
 export async function PATCH(request: NextRequest) {
@@ -249,18 +249,6 @@ export async function PATCH(request: NextRequest) {
     if (!user) {
       return NextResponse.json(
         { error: "User not found" },
-        { status: 404 }
-      );
-    }
-
-    // Check if profile exists
-    const existingProfile = await prisma.candidate.findUnique({
-      where: { userId: user.id },
-    });
-
-    if (!existingProfile) {
-      return NextResponse.json(
-        { error: "Candidate profile not found. Please create your profile first." },
         { status: 404 }
       );
     }
@@ -287,6 +275,7 @@ export async function PATCH(request: NextRequest) {
       startDateAvailability,
       openToContract,
       willingToRelocate,
+      currentRole,
     } = body;
 
     // Validate job type if provided
@@ -320,19 +309,24 @@ export async function PATCH(request: NextRequest) {
     if (startDateAvailability !== undefined) updateData.startDateAvailability = startDateAvailability ? new Date(startDateAvailability) : null;
     if (openToContract !== undefined) updateData.openToContract = openToContract;
     if (willingToRelocate !== undefined) updateData.willingToRelocate = willingToRelocate;
+    if (currentRole !== undefined) updateData.currentTitle = currentRole;
 
-    // Update candidate profile
-    const updatedCandidate = await prisma.candidate.update({
+    // Use upsert to create if doesn't exist, update if exists
+    const candidate = await prisma.candidate.upsert({
       where: { userId: user.id },
-      data: updateData,
+      create: {
+        userId: user.id,
+        ...updateData,
+      },
+      update: updateData,
     });
 
     // Calculate profile completion
-    const completionStatus = getProfileCompletionStatus(updatedCandidate);
+    const completionStatus = getProfileCompletionStatus(candidate);
 
     return NextResponse.json({
       message: "Candidate profile updated successfully",
-      candidate: updatedCandidate,
+      candidate,
       profileCompletion: completionStatus,
     });
   } catch (error) {
