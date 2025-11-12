@@ -200,6 +200,7 @@ model Candidate {
   workExperiences   WorkExperience[]
   educationEntries  Education[]
   skillsAssessments SkillsAssessment[]
+  profileViews      ProfileView[]
 
   @@index([userId])
   @@index([availability])
@@ -238,6 +239,7 @@ model Employer {
   jobs           Job[]
   emailCampaigns EmailCampaign[]
   placements     Placement[]
+  profileViews   ProfileView[]
 
   @@index([userId])
   @@index([verified])
@@ -306,6 +308,7 @@ model Job {
   placements   Placement[]
   savedBy      SavedJob[]
   shares       JobShare[]
+  profileViews ProfileView[]
 
   @@index([employerId])
   @@index([status])
@@ -600,6 +603,25 @@ model SkillsAssessment {
   @@index([score])
   @@index([tier])
   @@index([completedAt])
+}
+
+model ProfileView {
+  id          String   @id @default(cuid())
+  candidateId String
+  employerId  String
+  viewedAt    DateTime @default(now())
+  source      String? // search, application, recommendation, job_post
+  jobId       String? // If viewed from a job application
+
+  // Relations
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  employer  Employer  @relation(fields: [employerId], references: [id], onDelete: Cascade)
+  job       Job?      @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+  @@index([candidateId])
+  @@index([employerId])
+  @@index([viewedAt])
+  @@index([jobId])
 }
 
 enum InterviewStatus {

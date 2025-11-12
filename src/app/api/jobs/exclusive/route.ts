@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { JobStatus } from "@prisma/client";
 
 /**
  * GET /api/jobs/exclusive
@@ -67,7 +68,7 @@ export async function GET(req: NextRequest) {
     // Build where clause
     const where: any = {
       isExclusive: true,
-      status: "OPEN",
+      status: JobStatus.ACTIVE,
     };
 
     if (niche) {
