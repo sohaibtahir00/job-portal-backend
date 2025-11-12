@@ -200,6 +200,45 @@ Before deploying, ensure you have:
 
 After successful deployment, apply migrations:
 
+---
+
+## Create Admin User
+
+### Step 5a: Create Admin User (Required)
+
+After applying migrations, you MUST create an admin user to access the admin dashboard.
+
+1. **Using Railway CLI**
+
+   ```bash
+   railway run npm run db:seed
+   ```
+
+2. **Using Direct Script**
+
+   ```bash
+   railway run npx tsx scripts/create-admin.ts
+   ```
+
+3. **Default Admin Credentials**
+
+   The seed script creates:
+   - **Email**: admin@jobportal.com
+   - **Password**: Admin@123
+
+   **⚠️ IMPORTANT**: Change this password immediately after first login!
+
+4. **Access Admin Dashboard**
+
+   - **Login**: `https://your-domain.com/login`
+   - **Admin Dashboard**: `https://your-domain.com/admin`
+
+---
+
+### Step 6: Apply Database Migrations
+
+After successful deployment, apply migrations:
+
 1. **Option A: Using Railway CLI**
 
    Install Railway CLI:
@@ -640,6 +679,7 @@ railway logs | grep prisma
 
 - [ ] Initial deployment successful
 - [ ] Database migrations applied
+- [ ] Admin user created via seed script
 - [ ] Health check endpoint returns 200
 - [ ] Application accessible via Railway URL
 
