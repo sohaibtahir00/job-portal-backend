@@ -23,6 +23,14 @@ export async function GET(req: NextRequest) {
         emailNotifications: true,
         profileVisibility: true,
         allowRecruiterContact: true,
+        notifyNewApplications: true,
+        notifyInterviewReminders: true,
+        notifyMessages: true,
+        notifyPlacementUpdates: true,
+        notifyJobAlerts: true,
+        notifyApplicationUpdates: true,
+        notifyWeeklyDigest: true,
+        notifyMarketingEmails: true,
       },
     });
 

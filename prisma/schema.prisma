@@ -118,9 +118,19 @@ model User {
   updatedAt     DateTime   @updatedAt
 
   // Settings
-  emailNotifications   Boolean @default(true)
-  profileVisibility    Boolean @default(true)
-  allowRecruiterContact Boolean @default(true)
+  emailNotifications      Boolean @default(true)
+  profileVisibility       Boolean @default(true)
+  allowRecruiterContact   Boolean @default(true)
+
+  // Notification preferences
+  notifyNewApplications   Boolean @default(true)
+  notifyInterviewReminders Boolean @default(true)
+  notifyMessages          Boolean @default(true)
+  notifyPlacementUpdates  Boolean @default(true)
+  notifyJobAlerts         Boolean @default(true)
+  notifyApplicationUpdates Boolean @default(true)
+  notifyWeeklyDigest      Boolean @default(false)
+  notifyMarketingEmails   Boolean @default(false)
 
   // Relations
   candidate           Candidate?
