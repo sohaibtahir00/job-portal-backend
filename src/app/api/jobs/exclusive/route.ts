@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     const candidate = await prisma.candidate.findUnique({
       where: { userId: user.id },
       include: {
-        skillsAssessmentResults: {
+        skillsAssessments: {
           orderBy: { completedAt: "desc" },
           take: 1,
         },
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Require skills assessment completion
-    const hasCompletedAssessment = candidate.skillsAssessmentResults.length > 0;
+    const hasCompletedAssessment = candidate.skillsAssessments.length > 0;
 
     if (!hasCompletedAssessment) {
       return NextResponse.json(
