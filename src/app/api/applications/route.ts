@@ -426,8 +426,6 @@ export async function GET(request: NextRequest) {
             testScore: true,
             testPercentile: true,
             testTier: true,
-            currentTitle: true,
-            currentCompany: true,
             user: {
               select: {
                 name: true,
@@ -526,7 +524,6 @@ export async function GET(request: NextRequest) {
       message: error instanceof Error ? error.message : "Unknown error",
       stack: error instanceof Error ? error.stack : undefined,
       name: error instanceof Error ? error.name : undefined,
-      user: user ? { id: user.id, email: user.email, role: user.role } : "No user",
     });
 
     if (error instanceof Error) {

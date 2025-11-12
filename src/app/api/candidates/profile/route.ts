@@ -275,7 +275,6 @@ export async function PATCH(request: NextRequest) {
       startDateAvailability,
       openToContract,
       willingToRelocate,
-      currentRole,
     } = body;
 
     // Validate job type if provided
@@ -309,7 +308,6 @@ export async function PATCH(request: NextRequest) {
     if (startDateAvailability !== undefined) updateData.startDateAvailability = startDateAvailability ? new Date(startDateAvailability) : null;
     if (openToContract !== undefined) updateData.openToContract = openToContract;
     if (willingToRelocate !== undefined) updateData.willingToRelocate = willingToRelocate;
-    if (currentRole !== undefined) updateData.currentTitle = currentRole;
 
     // Use upsert to create if doesn't exist, update if exists
     const candidate = await prisma.candidate.upsert({
