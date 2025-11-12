@@ -625,7 +625,10 @@ model ProfileView {
 }
 
 enum InterviewStatus {
-  SCHEDULED
+  PENDING_AVAILABILITY // Employer hasn't set availability yet
+  AWAITING_CANDIDATE   // Employer set availability, waiting for candidate to choose
+  AWAITING_CONFIRMATION // Candidate chose slots, waiting for employer to confirm
+  SCHEDULED            // Interview is confirmed and scheduled
   COMPLETED
   CANCELLED
   RESCHEDULED
@@ -642,25 +645,64 @@ model Interview {
   applicationId String
   candidateId   String
   employerId    String
-  scheduledAt   DateTime
-  duration      Int // Duration in minutes
+  scheduledAt   DateTime?       // Optional until confirmed
+  duration      Int             // Duration in minutes
   type          InterviewType
-  status        InterviewStatus @default(SCHEDULED)
-  location      String? // For onsite interviews
-  meetingLink   String? // For video interviews
+  status        InterviewStatus @default(PENDING_AVAILABILITY)
+  location      String?         // For onsite interviews
+  meetingLink   String?         // For video interviews
   notes         String?         @db.Text
   feedback      String?         @db.Text
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
   // Relations
-  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  application       Application               @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  availabilitySlots InterviewAvailability[]
+  selectedSlots     InterviewSlotSelection[]
 
   @@index([applicationId])
   @@index([candidateId])
   @@index([employerId])
   @@index([scheduledAt])
   @@index([status])
+}
+
+// Employer's available time slots for interviews
+model InterviewAvailability {
+  id          String   @id @default(cuid())
+  interviewId String
+  startTime   DateTime
+  endTime     DateTime
+  isAvailable Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  interview      Interview                @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  candidateSlots InterviewSlotSelection[]
+
+  @@index([interviewId])
+  @@index([startTime])
+}
+
+// Candidate's selected time slots from employer's availability
+model InterviewSlotSelection {
+  id             String   @id @default(cuid())
+  interviewId    String
+  availabilityId String
+  isConfirmed    Boolean  @default(false) // True when employer confirms this slot
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  interview    Interview             @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  availability InterviewAvailability @relation(fields: [availabilityId], references: [id], onDelete: Cascade)
+
+  @@unique([interviewId, availabilityId]) // Candidate can't select same slot twice
+  @@index([interviewId])
+  @@index([availabilityId])
+  @@index([isConfirmed])
 }
 
 // Newsletter Subscriptions
