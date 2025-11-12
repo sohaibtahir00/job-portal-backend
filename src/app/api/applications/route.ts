@@ -525,7 +525,13 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Applications fetch error:", error);
+    console.error("❌ [GET /api/applications] Applications fetch error:", error);
+    console.error("❌ [GET /api/applications] Error details:", {
+      message: error instanceof Error ? error.message : "Unknown error",
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : undefined,
+      user: user ? { id: user.id, email: user.email, role: user.role } : "No user",
+    });
 
     if (error instanceof Error) {
       if (error.message.includes("Unauthorized")) {
@@ -537,7 +543,10 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: "Failed to fetch applications" },
+      {
+        error: "Failed to fetch applications",
+        details: error instanceof Error ? error.message : "Unknown error"
+      },
       { status: 500 }
     );
   }
