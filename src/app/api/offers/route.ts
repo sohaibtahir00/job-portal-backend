@@ -181,6 +181,11 @@ export async function POST(request: NextRequest) {
             id: true,
           },
         },
+        interviews: {
+          select: {
+            status: true,
+          },
+        },
       },
     });
 
@@ -195,11 +200,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if application status allows making an offer
-    if (!["INTERVIEWED", "SHORTLISTED", "INTERVIEW_SCHEDULED"].includes(application.status)) {
+    // Check if application status allows making an offer OR has completed interview
+    const hasCompletedInterview = application.interviews.some((i) => i.status === "COMPLETED");
+    const validStatuses = ["INTERVIEWED", "SHORTLISTED", "INTERVIEW_SCHEDULED"];
+
+    if (!validStatuses.includes(application.status) && !hasCompletedInterview) {
       return NextResponse.json(
         {
-          error: `Cannot make offer for application with status: ${application.status}. Application must be INTERVIEWED, SHORTLISTED, or INTERVIEW_SCHEDULED.`,
+          error: `Cannot make offer for application with status: ${application.status}. Application must be SHORTLISTED, have a completed interview, or be in interview process.`,
         },
         { status: 400 }
       );
