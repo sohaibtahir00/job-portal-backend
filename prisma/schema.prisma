@@ -201,6 +201,7 @@ model Candidate {
   educationEntries  Education[]
   skillsAssessments SkillsAssessment[]
   profileViews      ProfileView[]
+  receivedOffers    Offer[]            @relation("CandidateOffers")
 
   @@index([userId])
   @@index([availability])
@@ -240,6 +241,7 @@ model Employer {
   emailCampaigns EmailCampaign[]
   placements     Placement[]
   profileViews   ProfileView[]
+  madeOffers     Offer[]         @relation("EmployerOffers")
 
   @@index([userId])
   @@index([verified])
@@ -309,6 +311,7 @@ model Job {
   savedBy      SavedJob[]
   shares       JobShare[]
   profileViews ProfileView[]
+  offers       Offer[]       @relation("JobOffers")
 
   @@index([employerId])
   @@index([status])
@@ -340,6 +343,7 @@ model Application {
   candidate   Candidate    @relation(fields: [candidateId], references: [id], onDelete: Cascade)
   testResults TestResult[]
   interviews  Interview[]
+  offer       Offer? // One-to-one relation with Offer
 
   @@unique([jobId, candidateId]) // One application per job per candidate
   @@index([jobId])
@@ -634,6 +638,14 @@ enum InterviewStatus {
   RESCHEDULED
 }
 
+enum OfferStatus {
+  PENDING   // Offer made, waiting for candidate response
+  ACCEPTED  // Candidate accepted the offer
+  DECLINED  // Candidate declined the offer
+  EXPIRED   // Offer expired before candidate responded
+  WITHDRAWN // Employer withdrew the offer
+}
+
 enum InterviewType {
   PHONE
   VIDEO
@@ -703,6 +715,52 @@ model InterviewSlotSelection {
   @@index([interviewId])
   @@index([availabilityId])
   @@index([isConfirmed])
+}
+
+// Job Offers
+model Offer {
+  id            String      @id @default(cuid())
+  applicationId String      @unique // One offer per application
+  jobId         String
+  candidateId   String
+  employerId    String
+
+  // Offer details
+  position      String
+  salary        Int // Annual salary in cents
+  equity        Float? // Equity percentage (e.g., 0.5 for 0.5%)
+  signingBonus  Int? // Signing bonus in cents
+  benefits      String[] // Array of benefits (e.g., Health, Dental, 401k)
+  startDate     DateTime
+
+  // Offer letter
+  offerLetter   String? // URL to offer letter PDF
+  customMessage String? @db.Text // Personalized message from employer
+
+  // Status and timing
+  status        OfferStatus @default(PENDING)
+  expiresAt     DateTime // Offer expiration date
+  respondedAt   DateTime? // When candidate accepted/declined
+
+  // Candidate response
+  declineReason String? @db.Text // If declined, why?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  job         Job         @relation("JobOffers", fields: [jobId], references: [id], onDelete: Cascade)
+  candidate   Candidate   @relation("CandidateOffers", fields: [candidateId], references: [id], onDelete: Cascade)
+  employer    Employer    @relation("EmployerOffers", fields: [employerId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@index([jobId])
+  @@index([candidateId])
+  @@index([employerId])
+  @@index([status])
+  @@index([expiresAt])
+  @@index([createdAt])
 }
 
 // Newsletter Subscriptions
