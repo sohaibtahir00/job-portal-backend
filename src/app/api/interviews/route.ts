@@ -1,39 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import prisma from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 // GET /api/interviews - Get user's interviews
 export async function GET(req: NextRequest) {
   try {
-    // Try to get user from headers first (for cross-domain requests)
-    const userEmail = req.headers.get('X-User-Email');
-    const userRole = req.headers.get('X-User-Role');
-    const userId = req.headers.get('X-User-Id');
-
-    let user = null;
-
-    if (userEmail && userId && userRole) {
-      // Get user from headers (cross-domain request from frontend)
-      user = await prisma.user.findUnique({
-        where: { email: userEmail },
-        select: {
-          id: true,
-          email: true,
-          role: true,
-        },
-      });
-    } else {
-      // Fall back to session-based auth (same-domain request)
-      const session = await getServerSession(authOptions);
-      if (session?.user) {
-        user = {
-          id: session.user.id,
-          email: session.user.email,
-          role: session.user.role,
-        };
-      }
-    }
+    // Use getCurrentUser which properly handles cross-domain auth headers
+    const user = await getCurrentUser();
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -43,25 +16,34 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get("status");
     const applicationId = searchParams.get("applicationId");
 
-    // Build where clause - we need to filter through the application relation
-    const whereClause: any = {};
+    // Get the Employer or Candidate record
+    let employerId = null;
+    let candidateId = null;
 
-    // Filter by user role
-    if (user.role === "CANDIDATE") {
-      whereClause.application = {
-        candidate: {
-          userId: user.id
-        }
-      };
-    } else if (user.role === "EMPLOYER") {
-      whereClause.application = {
-        job: {
-          employer: {
-            userId: user.id
-          }
-        }
-      };
+    if (user.role === "EMPLOYER") {
+      const employer = await prisma.employer.findUnique({
+        where: { userId: user.id },
+        select: { id: true },
+      });
+      if (!employer) {
+        return NextResponse.json({ error: "Employer profile not found" }, { status: 404 });
+      }
+      employerId = employer.id;
+    } else if (user.role === "CANDIDATE") {
+      const candidate = await prisma.candidate.findUnique({
+        where: { userId: user.id },
+        select: { id: true },
+      });
+      if (!candidate) {
+        return NextResponse.json({ error: "Candidate profile not found" }, { status: 404 });
+      }
+      candidateId = candidate.id;
     }
+
+    // Build where clause
+    const whereClause: any = {
+      ...(candidateId ? { candidateId } : { employerId }),
+    };
 
     if (status && status !== "all") {
       whereClause.status = status.toUpperCase();
@@ -78,8 +60,10 @@ export async function GET(req: NextRequest) {
           include: {
             job: {
               select: {
+                id: true,
                 title: true,
-                company: true,
+                location: true,
+                type: true,
               },
             },
             candidate: {
@@ -95,7 +79,7 @@ export async function GET(req: NextRequest) {
           },
         },
       },
-      orderBy: { createdAt: "desc" }, // Changed from scheduledAt to createdAt since scheduledAt can be null
+      orderBy: { createdAt: "desc" },
     });
 
     return NextResponse.json({ interviews });
