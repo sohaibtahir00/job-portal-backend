@@ -196,10 +196,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if application status allows making an offer
-    if (!["INTERVIEWED", "SHORTLISTED"].includes(application.status)) {
+    if (!["INTERVIEWED", "SHORTLISTED", "INTERVIEW_SCHEDULED"].includes(application.status)) {
       return NextResponse.json(
         {
-          error: `Cannot make offer for application with status: ${application.status}. Application must be INTERVIEWED or SHORTLISTED.`,
+          error: `Cannot make offer for application with status: ${application.status}. Application must be INTERVIEWED, SHORTLISTED, or INTERVIEW_SCHEDULED.`,
         },
         { status: 400 }
       );
