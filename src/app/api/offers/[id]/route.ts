@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { OfferStatus } from "@prisma/client";
 
@@ -10,9 +9,9 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const user = await getCurrentUser();
 
-    if (!session || !session.user) {
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -66,18 +65,18 @@ export async function GET(
     }
 
     // Check authorization
-    if (session.user.role === "CANDIDATE") {
+    if (user.role === "CANDIDATE") {
       const candidate = await prisma.candidate.findUnique({
-        where: { userId: session.user.id },
+        where: { userId: user.id },
         select: { id: true },
       });
 
       if (!candidate || offer.candidateId !== candidate.id) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
       }
-    } else if (session.user.role === "EMPLOYER") {
+    } else if (user.role === "EMPLOYER") {
       const employer = await prisma.employer.findUnique({
-        where: { userId: session.user.id },
+        where: { userId: user.id },
         select: { id: true },
       });
 
@@ -104,14 +103,14 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const user = await getCurrentUser();
 
-    if (!session || !session.user || session.user.role !== "EMPLOYER") {
+    if (!user || user.role !== "EMPLOYER") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const employer = await prisma.employer.findUnique({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
       select: { id: true },
     });
 
@@ -222,14 +221,14 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const user = await getCurrentUser();
 
-    if (!session || !session.user || session.user.role !== "EMPLOYER") {
+    if (!user || user.role !== "EMPLOYER") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const employer = await prisma.employer.findUnique({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
       select: { id: true },
     });
 

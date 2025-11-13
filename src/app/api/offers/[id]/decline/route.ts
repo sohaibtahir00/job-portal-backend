@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { OfferStatus, ApplicationStatus } from "@prisma/client";
 
@@ -10,14 +9,14 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const user = await getCurrentUser();
 
-    if (!session || !session.user || session.user.role !== "CANDIDATE") {
+    if (!user || user.role !== "CANDIDATE") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const candidate = await prisma.candidate.findUnique({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
       select: { id: true },
     });
 
