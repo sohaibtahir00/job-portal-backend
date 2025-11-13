@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { ApplicationStatus, OfferStatus } from "@prisma/client";
 
 // GET /api/offers - Get all offers (filtered by user role)
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const user = await getCurrentUser();
 
-    if (!session || !session.user) {
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -17,9 +16,9 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status") as OfferStatus | null;
 
     // Candidates see offers made to them
-    if (session.user.role === "CANDIDATE") {
+    if (user.role === "CANDIDATE") {
       const candidate = await prisma.candidate.findUnique({
-        where: { userId: session.user.id },
+        where: { userId: user.id },
         select: { id: true },
       });
 
@@ -64,9 +63,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Employers see offers they've made
-    if (session.user.role === "EMPLOYER") {
+    if (user.role === "EMPLOYER") {
       const employer = await prisma.employer.findUnique({
-        where: { userId: session.user.id },
+        where: { userId: user.id },
         select: { id: true },
       });
 
@@ -128,14 +127,14 @@ export async function GET(request: NextRequest) {
 // POST /api/offers - Create a new offer (Employer only)
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const user = await getCurrentUser();
 
-    if (!session || !session.user || session.user.role !== "EMPLOYER") {
+    if (!user || user.role !== "EMPLOYER") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const employer = await prisma.employer.findUnique({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
       select: { id: true },
     });
 
