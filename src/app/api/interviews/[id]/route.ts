@@ -51,7 +51,14 @@ export async function GET(
       include: {
         application: {
           include: {
-            job: true,
+            job: {
+              select: {
+                id: true,
+                title: true,
+                location: true,
+                type: true,
+              },
+            },
             candidate: {
               include: {
                 user: {
@@ -62,6 +69,16 @@ export async function GET(
                 },
               },
             },
+          },
+        },
+        availabilitySlots: {
+          orderBy: {
+            startTime: "asc",
+          },
+        },
+        selectedSlots: {
+          include: {
+            availability: true,
           },
         },
       },
