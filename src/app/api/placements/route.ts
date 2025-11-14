@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser, requireAnyRole } from "@/lib/auth";
 import { UserRole, PlacementStatus, PaymentStatus, ApplicationStatus } from "@prisma/client";
 import { calculatePlacementFeeAmounts } from "@/lib/stripe";
+import { calculateFeePercentage } from "@/lib/placement-fee";
 
 /**
  * POST /api/placements
@@ -17,7 +18,7 @@ import { calculatePlacementFeeAmounts } from "@/lib/stripe";
  *   "companyName": "string" (optional, defaults to employer's company),
  *   "startDate": "ISO date string",
  *   "salary": number (in cents),
- *   "feePercentage": number (optional, default 18),
+ *   "feePercentage": number (optional, auto-calculated from job experience level: 15% for Entry/Mid, 18% for Senior, 20% for Executive),
  *   "guaranteePeriodDays": number (optional, default 90),
  *   "notes": "string" (optional)
  * }
@@ -94,6 +95,7 @@ export async function POST(request: NextRequest) {
 
     // Validate job if provided
     let job = null;
+    let dynamicFeePercentage = feePercentage;
     if (jobId) {
       job = await prisma.job.findUnique({
         where: { id: jobId },
@@ -116,6 +118,12 @@ export async function POST(request: NextRequest) {
           { status: 403 }
         );
       }
+
+      // Calculate fee percentage based on experience level if not explicitly provided
+      if (feePercentage === 18) {
+        // Only override default 18%, keep custom values
+        dynamicFeePercentage = calculateFeePercentage(job.experienceLevel) * 100;
+      }
     }
 
     // Validate salary
@@ -127,15 +135,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate fee percentage
-    if (typeof feePercentage !== "number" || feePercentage < 0 || feePercentage > 100) {
+    if (typeof dynamicFeePercentage !== "number" || dynamicFeePercentage < 0 || dynamicFeePercentage > 100) {
       return NextResponse.json(
         { error: "Fee percentage must be between 0 and 100" },
         { status: 400 }
       );
     }
 
-    // Calculate placement fee (18% of annual salary by default)
-    const placementFee = Math.round(salary * (feePercentage / 100));
+    // Calculate placement fee based on dynamic fee percentage (15-20% based on experience level)
+    const placementFee = Math.round(salary * (dynamicFeePercentage / 100));
     const { upfrontAmount, remainingAmount } = calculatePlacementFeeAmounts(placementFee);
 
     // Calculate guarantee end date
@@ -156,7 +164,7 @@ export async function POST(request: NextRequest) {
         companyName: finalCompanyName,
         startDate: startDateObj,
         salary,
-        feePercentage,
+        feePercentage: dynamicFeePercentage,
         placementFee,
         upfrontAmount,
         remainingAmount,

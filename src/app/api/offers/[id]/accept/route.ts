@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { OfferStatus, ApplicationStatus } from "@prisma/client";
+import { calculatePlacementFee } from "@/lib/placement-fee";
 
 // POST /api/offers/[id]/accept - Accept an offer (Candidate only)
 export async function POST(
@@ -35,6 +36,7 @@ export async function POST(
           select: {
             id: true,
             title: true,
+            experienceLevel: true,
           },
         },
         employer: {
@@ -115,9 +117,9 @@ export async function POST(
     });
 
     // Create placement record when offer is accepted
-    const placementFee = Math.round(offer.salary * 0.18); // 18% of annual salary
-    const upfrontAmount = Math.round(placementFee * 0.5); // 50% upfront
-    const remainingAmount = placementFee - upfrontAmount; // Remaining 50%
+    // Calculate placement fee dynamically based on experience level
+    const { feePercentage, placementFee, upfrontAmount, remainingAmount } =
+      calculatePlacementFee(offer.salary, offer.job.experienceLevel);
 
     const startDate = new Date(offer.startDate);
     const guaranteeEndDate = new Date(startDate);
@@ -133,6 +135,7 @@ export async function POST(
         startDate,
         salary: offer.salary,
         status: "PENDING",
+        feePercentage, // Dynamic fee: 15%, 18%, or 20%
         placementFee,
         upfrontAmount,
         remainingAmount,
