@@ -79,6 +79,7 @@ export async function PATCH(
 
     const updates = await req.json();
 
+    // Update interview
     const interview = await prisma.interview.update({
       where: { id: params.id },
       data: updates,
@@ -104,6 +105,14 @@ export async function PATCH(
         },
       },
     });
+
+    // If interview status is being changed to COMPLETED, update application status to INTERVIEWED
+    if (updates.status === "COMPLETED") {
+      await prisma.application.update({
+        where: { id: interview.applicationId },
+        data: { status: "INTERVIEWED" },
+      });
+    }
 
     // Send email notification to candidate about interview update
     try {
