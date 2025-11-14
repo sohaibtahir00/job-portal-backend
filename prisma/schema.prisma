@@ -66,9 +66,13 @@ enum TestStatus {
 
 enum PlacementStatus {
   PENDING
+  ACTIVE
   CONFIRMED
   COMPLETED
   CANCELLED
+  REPLACEMENT_REQUESTED
+  SEEKING_REPLACEMENT
+  REPLACED
 }
 
 enum PaymentStatus {
@@ -404,13 +408,37 @@ model Placement {
   guaranteePeriodDays Int       @default(90) // Guarantee period in days
   guaranteeEndDate    DateTime? // Calculated: startDate + guaranteePeriodDays
 
+  // Replacement tracking
+  replacementRequested      Boolean   @default(false)
+  replacementRequestedAt    DateTime?
+  replacementReason         String?   @db.Text
+  replacementLastDayWorked  DateTime?
+  replacementDaysWorked     Int?
+  replacementApproved       Boolean?
+  replacementReviewedAt     DateTime?
+  replacementReviewedBy     String? // Admin user ID
+  replacementNotes          String?   @db.Text
+
+  // Refund tracking
+  refundAmount       Int?      @default(0) // In cents
+  refundProcessed    Boolean   @default(false)
+  refundProcessedAt  DateTime?
+  refundStripeId     String? // Stripe refund ID
+  refundMethod       String? // stripe_refund, manual, no_refund
+
+  // Replacement link
+  replacesPlacementId   String? // If this is a replacement for another placement
+  replacedByPlacementId String? // If this placement was replaced by another
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
-  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
-  employer  Employer? @relation(fields: [employerId], references: [id], onDelete: SetNull)
-  job       Job?      @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  candidate            Candidate    @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  employer             Employer?    @relation(fields: [employerId], references: [id], onDelete: SetNull)
+  job                  Job?         @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  replacesPlacement    Placement?   @relation("ReplacementOf", fields: [replacesPlacementId], references: [id], onDelete: SetNull)
+  replacedByPlacements Placement[]  @relation("ReplacementOf")
 
   @@index([candidateId])
   @@index([employerId])
@@ -418,6 +446,8 @@ model Placement {
   @@index([status])
   @@index([paymentStatus])
   @@index([startDate])
+  @@index([replacementRequested])
+  @@index([replacesPlacementId])
 }
 
 model Message {
