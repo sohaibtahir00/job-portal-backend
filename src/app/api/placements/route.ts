@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser, requireAnyRole } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { UserRole, PlacementStatus, PaymentStatus, ApplicationStatus } from "@prisma/client";
 import { calculatePlacementFeeAmounts } from "@/lib/stripe";
 import { calculateFeePercentage } from "@/lib/placement-fee";
