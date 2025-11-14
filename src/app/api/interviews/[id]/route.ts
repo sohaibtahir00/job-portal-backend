@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
+import { generateInterviewCalendarInvite, generateInterviewCancellationInvite } from "@/lib/calendar";
 
 // GET /api/interviews/[id]
 export async function GET(
@@ -114,7 +115,7 @@ export async function PATCH(
       });
     }
 
-    // Send email notification to candidate about interview update
+    // Send email notification to candidate about interview update with updated calendar invite
     try {
       if (interview.scheduledAt) {
         const interviewDate = new Date(interview.scheduledAt);
@@ -128,6 +129,20 @@ export async function PATCH(
           hour: 'numeric',
           minute: '2-digit',
           hour12: true,
+        });
+
+        // Generate updated calendar invite
+        const calendarInvite = generateInterviewCalendarInvite({
+          candidateName: interview.application.candidate.user.name,
+          candidateEmail: interview.application.candidate.user.email,
+          employerName: 'Hiring Team',
+          jobTitle: interview.application.job.title,
+          startTime: interviewDate,
+          duration: interview.duration,
+          type: interview.type,
+          location: interview.location || undefined,
+          meetingLink: interview.meetingLink || undefined,
+          notes: interview.notes || undefined,
         });
 
         await sendEmail({
@@ -158,6 +173,11 @@ export async function PATCH(
                 </div>
               ` : ''}
 
+              <div style="background-color: #e0f2fe; border-left: 4px solid #0284c7; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0;"><strong>📎 Updated Calendar Invite Attached</strong><br>
+                An updated calendar invite (.ics file) is attached. Click it to update this event in your calendar.</p>
+              </div>
+
               <div style="text-align: center; margin: 30px 0;">
                 <a href="${process.env.FRONTEND_URL}/candidate/interviews" style="background-color: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">View Interview Details</a>
               </div>
@@ -166,6 +186,12 @@ export async function PATCH(
               <p>Best regards,<br>The Job Portal Team</p>
             </div>
           `,
+          attachments: [
+            {
+              filename: 'interview-updated.ics',
+              content: calendarInvite,
+            },
+          ],
         });
       }
     } catch (emailError) {
@@ -230,7 +256,7 @@ export async function DELETE(
       data: { status: "CANCELLED" },
     });
 
-    // Send cancellation email to candidate
+    // Send cancellation email to candidate with cancellation calendar invite
     try {
       if (interview.scheduledAt) {
         const interviewDate = new Date(interview.scheduledAt);
@@ -244,6 +270,16 @@ export async function DELETE(
           hour: 'numeric',
           minute: '2-digit',
           hour12: true,
+        });
+
+        // Generate cancellation calendar invite
+        const cancellationInvite = generateInterviewCancellationInvite({
+          candidateName: interview.application.candidate.user.name,
+          candidateEmail: interview.application.candidate.user.email,
+          employerName: 'Hiring Team',
+          jobTitle: interview.application.job.title,
+          originalStartTime: interviewDate,
+          duration: interview.duration,
         });
 
         await sendEmail({
@@ -268,6 +304,11 @@ export async function DELETE(
                 <p style="margin: 0;">The employer may reschedule or provide additional information. You will receive a new notification if the interview is rescheduled.</p>
               </div>
 
+              <div style="background-color: #fef2f2; border-left: 4px solid #dc2626; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0;"><strong>📎 Cancellation Calendar Invite Attached</strong><br>
+                A cancellation invite (.ics file) is attached to remove this event from your calendar.</p>
+              </div>
+
               <div style="text-align: center; margin: 30px 0;">
                 <a href="${process.env.FRONTEND_URL}/candidate/applications" style="background-color: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">View Your Applications</a>
               </div>
@@ -276,6 +317,12 @@ export async function DELETE(
               <p>Best regards,<br>The Job Portal Team</p>
             </div>
           `,
+          attachments: [
+            {
+              filename: 'interview-cancelled.ics',
+              content: cancellationInvite,
+            },
+          ],
         });
       }
     } catch (emailError) {

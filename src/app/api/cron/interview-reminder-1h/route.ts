@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
+import { generateInterviewCalendarInvite } from "@/lib/calendar";
 
 /**
  * Cron Job: 1-Hour Interview Reminder
@@ -88,6 +89,20 @@ export async function POST(request: NextRequest) {
         const timeUntil = interviewDate.getTime() - now.getTime();
         const minutesUntil = Math.round(timeUntil / (60 * 1000));
 
+        // Generate calendar invite reminder
+        const calendarInvite = generateInterviewCalendarInvite({
+          candidateName: interview.application.candidate.user.name,
+          candidateEmail: interview.application.candidate.user.email,
+          employerName: 'Hiring Team',
+          jobTitle: interview.application.job.title,
+          startTime: interviewDate,
+          duration: interview.duration,
+          type: interview.type,
+          location: interview.location || undefined,
+          meetingLink: interview.meetingLink || undefined,
+          notes: interview.notes || undefined,
+        });
+
         await sendEmail({
           to: interview.application.candidate.user.email,
           subject: `Starting Soon: Interview in ${minutesUntil} Minutes - ${interview.application.job.title}`,
@@ -143,6 +158,11 @@ export async function POST(request: NextRequest) {
                 </div>
               ` : ''}
 
+              <div style="background-color: #e0f2fe; border-left: 4px solid #0284c7; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0;"><strong>📎 Calendar Invite Attached</strong><br>
+                Quick calendar reminder attached in case you need it!</p>
+              </div>
+
               <div style="text-align: center; margin: 30px 0;">
                 <p style="font-size: 18px; font-weight: bold; color: #059669; margin: 0;">Good luck! You've got this! 💪🌟</p>
               </div>
@@ -151,6 +171,12 @@ export async function POST(request: NextRequest) {
               <p>Best regards,<br>The Job Portal Team</p>
             </div>
           `,
+          attachments: [
+            {
+              filename: 'interview-reminder.ics',
+              content: calendarInvite,
+            },
+          ],
         });
 
         successCount++;

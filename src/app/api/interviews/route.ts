@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
+import { generateInterviewCalendarInvite } from "@/lib/calendar";
 
 // GET /api/interviews - Get user's interviews
 export async function GET(req: NextRequest) {
@@ -146,7 +147,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Send email notification to candidate
+    // Send email notification to candidate with calendar invite
     try {
       const interviewDate = new Date(scheduledAt);
       const formattedDate = interviewDate.toLocaleDateString('en-US', {
@@ -159,6 +160,20 @@ export async function POST(req: NextRequest) {
         hour: 'numeric',
         minute: '2-digit',
         hour12: true,
+      });
+
+      // Generate calendar invite
+      const calendarInvite = generateInterviewCalendarInvite({
+        candidateName: interview.application.candidate.user.name,
+        candidateEmail: interview.application.candidate.user.email,
+        employerName: 'Hiring Team', // You may want to get actual employer name from the job
+        jobTitle: interview.application.job.title,
+        startTime: interviewDate,
+        duration: duration,
+        type: type,
+        location: location,
+        meetingLink: meetingLink,
+        notes: notes,
       });
 
       await sendEmail({
@@ -199,6 +214,11 @@ export async function POST(req: NextRequest) {
               </ul>
             </div>
 
+            <div style="background-color: #e0f2fe; border-left: 4px solid #0284c7; padding: 15px; margin: 20px 0;">
+              <p style="margin: 0;"><strong>📎 Calendar Invite Attached</strong><br>
+              A calendar invite (.ics file) is attached to this email. Click it to add this interview to your calendar app (Outlook, Google Calendar, Apple Calendar, etc.).</p>
+            </div>
+
             <div style="text-align: center; margin: 30px 0;">
               <a href="${process.env.FRONTEND_URL}/candidate/interviews" style="background-color: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">View Interview Details</a>
             </div>
@@ -207,6 +227,12 @@ export async function POST(req: NextRequest) {
             <p>Best regards,<br>The Job Portal Team</p>
           </div>
         `,
+        attachments: [
+          {
+            filename: 'interview.ics',
+            content: calendarInvite,
+          },
+        ],
       });
     } catch (emailError) {
       console.error("Failed to send interview notification email:", emailError);

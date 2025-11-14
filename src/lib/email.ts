@@ -25,6 +25,10 @@ export async function sendEmail(options: {
   subject: string;
   html: string;
   text?: string;
+  attachments?: Array<{
+    filename: string;
+    content: string | Buffer;
+  }>;
 }) {
   if (!process.env.RESEND_API_KEY) {
     console.warn(`Email not sent (no API key): ${options.subject} to ${options.to}`);
@@ -38,6 +42,7 @@ export async function sendEmail(options: {
       subject: options.subject,
       html: options.html,
       text: options.text,
+      attachments: options.attachments,
     });
 
     console.log(`Email sent: ${options.subject} to ${options.to}`);
