@@ -1,39 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-
-// Helper function to get authenticated user
-async function getAuthenticatedUser(req: NextRequest) {
-  // Try to get user from headers first (for cross-domain requests)
-  const userEmail = req.headers.get('X-User-Email');
-  const userRole = req.headers.get('X-User-Role');
-  const userId = req.headers.get('X-User-Id');
-
-  if (userEmail && userId && userRole) {
-    // Get user from headers (cross-domain request from frontend)
-    return await prisma.user.findUnique({
-      where: { email: userEmail },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-      },
-    });
-  } else {
-    // Fall back to session-based auth (same-domain request)
-    const session = await getServerSession(authOptions);
-    if (session?.user) {
-      return {
-        id: session.user.id,
-        email: session.user.email,
-        role: session.user.role,
-      };
-    }
-  }
-
-  return null;
-}
 
 // GET /api/interviews/[id]
 export async function GET(
@@ -41,7 +8,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await getAuthenticatedUser(req);
+    const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -104,7 +71,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await getAuthenticatedUser(req);
+    const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -132,7 +99,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await getAuthenticatedUser(req);
+    const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

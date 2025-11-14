@@ -95,34 +95,7 @@ export async function GET(req: NextRequest) {
 // POST /api/interviews - Schedule new interview
 export async function POST(req: NextRequest) {
   try {
-    // Try to get user from headers first (for cross-domain requests)
-    const userEmail = req.headers.get('X-User-Email');
-    const userRole = req.headers.get('X-User-Role');
-    const userId = req.headers.get('X-User-Id');
-
-    let user = null;
-
-    if (userEmail && userId && userRole) {
-      // Get user from headers (cross-domain request from frontend)
-      user = await prisma.user.findUnique({
-        where: { email: userEmail },
-        select: {
-          id: true,
-          email: true,
-          role: true,
-        },
-      });
-    } else {
-      // Fall back to session-based auth (same-domain request)
-      const session = await getServerSession(authOptions);
-      if (session?.user) {
-        user = {
-          id: session.user.id,
-          email: session.user.email,
-          role: session.user.role,
-        };
-      }
-    }
+    const user = await getCurrentUser();
 
     if (!user || user.role !== "EMPLOYER") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
