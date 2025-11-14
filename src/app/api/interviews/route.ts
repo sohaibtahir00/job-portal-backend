@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { sendEmail } from "@/lib/email";
 
 // GET /api/interviews - Get user's interviews
 export async function GET(req: NextRequest) {
@@ -122,9 +123,95 @@ export async function POST(req: NextRequest) {
         notes,
         status: "SCHEDULED",
       },
+      include: {
+        application: {
+          include: {
+            job: {
+              select: {
+                title: true,
+              },
+            },
+            candidate: {
+              include: {
+                user: {
+                  select: {
+                    name: true,
+                    email: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     });
 
-    // TODO: Send notification to candidate
+    // Send email notification to candidate
+    try {
+      const interviewDate = new Date(scheduledAt);
+      const formattedDate = interviewDate.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+      const formattedTime = interviewDate.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      });
+
+      await sendEmail({
+        to: interview.application.candidate.user.email,
+        subject: `Interview Scheduled: ${interview.application.job.title}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #3b82f6;">📅 Interview Scheduled</h2>
+            <p>Hi ${interview.application.candidate.user.name},</p>
+            <p>You have been scheduled for an interview for the position of <strong>${interview.application.job.title}</strong>.</p>
+
+            <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0;">
+              <p style="margin: 0 0 10px 0;"><strong>Interview Details:</strong></p>
+              <ul style="margin: 0; padding-left: 20px;">
+                <li><strong>Date:</strong> ${formattedDate}</li>
+                <li><strong>Time:</strong> ${formattedTime}</li>
+                <li><strong>Duration:</strong> ${duration} minutes</li>
+                <li><strong>Type:</strong> ${type}</li>
+                ${location ? `<li><strong>Location:</strong> ${location}</li>` : ''}
+                ${meetingLink ? `<li><strong>Meeting Link:</strong> <a href="${meetingLink}" style="color: #3b82f6;">${meetingLink}</a></li>` : ''}
+              </ul>
+            </div>
+
+            ${notes ? `
+              <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0 0 10px 0;"><strong>Notes from Employer:</strong></p>
+                <p style="margin: 0;">${notes}</p>
+              </div>
+            ` : ''}
+
+            <div style="background-color: #f0fdf4; border-left: 4px solid #059669; padding: 15px; margin: 20px 0;">
+              <p style="margin: 0 0 10px 0;"><strong>Preparation Tips:</strong></p>
+              <ul style="margin: 0; padding-left: 20px;">
+                <li>Review the job description and requirements</li>
+                <li>Research the company and prepare questions</li>
+                <li>Test your equipment if it's a video interview</li>
+                <li>Arrive 5-10 minutes early</li>
+              </ul>
+            </div>
+
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.FRONTEND_URL}/candidate/interviews" style="background-color: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">View Interview Details</a>
+            </div>
+
+            <p>Good luck with your interview!</p>
+            <p>Best regards,<br>The Job Portal Team</p>
+          </div>
+        `,
+      });
+    } catch (emailError) {
+      console.error("Failed to send interview notification email:", emailError);
+      // Don't fail the interview creation if email fails
+    }
 
     return NextResponse.json({ success: true, interview });
   } catch (error) {

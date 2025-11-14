@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { sendEmail } from "@/lib/email";
 
 // GET /api/interviews/[id]
 export async function GET(
@@ -81,7 +82,87 @@ export async function PATCH(
     const interview = await prisma.interview.update({
       where: { id: params.id },
       data: updates,
+      include: {
+        application: {
+          include: {
+            job: {
+              select: {
+                title: true,
+              },
+            },
+            candidate: {
+              include: {
+                user: {
+                  select: {
+                    name: true,
+                    email: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     });
+
+    // Send email notification to candidate about interview update
+    try {
+      if (interview.scheduledAt) {
+        const interviewDate = new Date(interview.scheduledAt);
+        const formattedDate = interviewDate.toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        });
+        const formattedTime = interviewDate.toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        });
+
+        await sendEmail({
+          to: interview.application.candidate.user.email,
+          subject: `Interview Updated: ${interview.application.job.title}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #f59e0b;">🔄 Interview Details Updated</h2>
+              <p>Hi ${interview.application.candidate.user.name},</p>
+              <p>The interview details for <strong>${interview.application.job.title}</strong> have been updated.</p>
+
+              <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0 0 10px 0;"><strong>Updated Interview Details:</strong></p>
+                <ul style="margin: 0; padding-left: 20px;">
+                  <li><strong>Date:</strong> ${formattedDate}</li>
+                  <li><strong>Time:</strong> ${formattedTime}</li>
+                  <li><strong>Duration:</strong> ${interview.duration} minutes</li>
+                  <li><strong>Type:</strong> ${interview.type}</li>
+                  ${interview.location ? `<li><strong>Location:</strong> ${interview.location}</li>` : ''}
+                  ${interview.meetingLink ? `<li><strong>Meeting Link:</strong> <a href="${interview.meetingLink}" style="color: #3b82f6;">${interview.meetingLink}</a></li>` : ''}
+                </ul>
+              </div>
+
+              ${interview.notes ? `
+                <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0;">
+                  <p style="margin: 0 0 10px 0;"><strong>Notes:</strong></p>
+                  <p style="margin: 0;">${interview.notes}</p>
+                </div>
+              ` : ''}
+
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.FRONTEND_URL}/candidate/interviews" style="background-color: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">View Interview Details</a>
+              </div>
+
+              <p>Please make note of the updated details.</p>
+              <p>Best regards,<br>The Job Portal Team</p>
+            </div>
+          `,
+        });
+      }
+    } catch (emailError) {
+      console.error("Failed to send interview update email:", emailError);
+      // Don't fail the update if email fails
+    }
 
     return NextResponse.json({ success: true, interview });
   } catch (error) {
@@ -104,10 +185,94 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // First get interview details before cancelling
+    const interview = await prisma.interview.findUnique({
+      where: { id: params.id },
+      include: {
+        application: {
+          include: {
+            job: {
+              select: {
+                title: true,
+              },
+            },
+            candidate: {
+              include: {
+                user: {
+                  select: {
+                    name: true,
+                    email: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!interview) {
+      return NextResponse.json({ error: "Interview not found" }, { status: 404 });
+    }
+
+    // Cancel the interview
     await prisma.interview.update({
       where: { id: params.id },
       data: { status: "CANCELLED" },
     });
+
+    // Send cancellation email to candidate
+    try {
+      if (interview.scheduledAt) {
+        const interviewDate = new Date(interview.scheduledAt);
+        const formattedDate = interviewDate.toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        });
+        const formattedTime = interviewDate.toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        });
+
+        await sendEmail({
+          to: interview.application.candidate.user.email,
+          subject: `Interview Cancelled: ${interview.application.job.title}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #dc2626;">❌ Interview Cancelled</h2>
+              <p>Hi ${interview.application.candidate.user.name},</p>
+              <p>We regret to inform you that your interview for <strong>${interview.application.job.title}</strong> has been cancelled.</p>
+
+              <div style="background-color: #fee2e2; border-left: 4px solid #dc2626; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0 0 10px 0;"><strong>Cancelled Interview Details:</strong></p>
+                <ul style="margin: 0; padding-left: 20px;">
+                  <li><strong>Date:</strong> ${formattedDate}</li>
+                  <li><strong>Time:</strong> ${formattedTime}</li>
+                  <li><strong>Position:</strong> ${interview.application.job.title}</li>
+                </ul>
+              </div>
+
+              <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0;">The employer may reschedule or provide additional information. You will receive a new notification if the interview is rescheduled.</p>
+              </div>
+
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.FRONTEND_URL}/candidate/applications" style="background-color: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">View Your Applications</a>
+              </div>
+
+              <p>If you have any questions, please contact the employer directly.</p>
+              <p>Best regards,<br>The Job Portal Team</p>
+            </div>
+          `,
+        });
+      }
+    } catch (emailError) {
+      console.error("Failed to send interview cancellation email:", emailError);
+      // Don't fail the cancellation if email fails
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
