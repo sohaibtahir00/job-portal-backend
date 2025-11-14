@@ -25,15 +25,20 @@ import { calculateFeePercentage } from "@/lib/placement-fee";
  */
 export async function POST(request: NextRequest) {
   try {
-    // Require employer or admin role
-    await requireAnyRole([UserRole.EMPLOYER, UserRole.ADMIN]);
-
+    // Get user and check role in one call
     const user = await getCurrentUser();
 
     if (!user) {
       return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    if (![UserRole.EMPLOYER, UserRole.ADMIN].includes(user.role as UserRole)) {
+      return NextResponse.json(
+        { error: "Forbidden - Employer or Admin role required" },
+        { status: 403 }
       );
     }
 

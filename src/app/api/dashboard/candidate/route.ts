@@ -26,15 +26,20 @@ import {
  */
 export async function GET(request: NextRequest) {
   try {
-    // Require candidate role
-    await requireRole(UserRole.CANDIDATE);
-
+    // Get user and check role in one call
     const user = await getCurrentUser();
 
     if (!user) {
       return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    if (user.role !== UserRole.CANDIDATE) {
+      return NextResponse.json(
+        { error: "Forbidden - Candidate role required" },
+        { status: 403 }
       );
     }
 

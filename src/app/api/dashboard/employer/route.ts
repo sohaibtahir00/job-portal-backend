@@ -23,15 +23,20 @@ import { formatCurrency } from "@/lib/stripe";
  */
 export async function GET(request: NextRequest) {
   try {
-    // Require employer role
-    await requireRole(UserRole.EMPLOYER);
-
+    // Get user and check role in one call
     const user = await getCurrentUser();
 
     if (!user) {
       return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    if (user.role !== UserRole.EMPLOYER) {
+      return NextResponse.json(
+        { error: "Forbidden - Employer role required" },
+        { status: 403 }
       );
     }
 
