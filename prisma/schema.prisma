@@ -82,6 +82,22 @@ enum PaymentStatus {
   FAILED
 }
 
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  VIEWED
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum InvoiceType {
+  UPFRONT_PAYMENT
+  REMAINING_PAYMENT
+  FULL_PAYMENT
+  REFUND
+}
+
 enum MessageStatus {
   SENT
   DELIVERED
@@ -397,10 +413,16 @@ model Placement {
   paymentStatus          PaymentStatus @default(PENDING)
   placementFee           Int? // Total placement fee in cents
   feePercentage          Float         @default(18) // Fee percentage (default 18%)
-  upfrontAmount          Int? // 50% upfront payment in cents
-  remainingAmount        Int? // 50% remaining payment in cents
+  upfrontPercentage      Float         @default(50) // Upfront payment percentage (customizable)
+  remainingPercentage    Float         @default(50) // Remaining payment percentage (customizable)
+  upfrontAmount          Int? // Upfront payment in cents (calculated from upfrontPercentage)
+  remainingAmount        Int? // Remaining payment in cents (calculated from remainingPercentage)
   upfrontPaidAt          DateTime? // When upfront payment was completed
   remainingPaidAt        DateTime? // When remaining payment was completed
+  upfrontPaymentMethod   String? // Payment method for upfront (bank_transfer, wire, check, stripe)
+  remainingPaymentMethod String? // Payment method for remaining
+  upfrontTransactionId   String? // Transaction ID for upfront payment
+  remainingTransactionId String? // Transaction ID for remaining payment
   stripePaymentIntentId  String? // Stripe Payment Intent ID for upfront
   stripePaymentIntentId2 String? // Stripe Payment Intent ID for remaining
 
@@ -439,6 +461,7 @@ model Placement {
   job                  Job?         @relation(fields: [jobId], references: [id], onDelete: SetNull)
   replacesPlacement    Placement?   @relation("ReplacementOf", fields: [replacesPlacementId], references: [id], onDelete: SetNull)
   replacedByPlacements Placement[]  @relation("ReplacementOf")
+  invoices             Invoice[]
 
   @@index([candidateId])
   @@index([employerId])
@@ -448,6 +471,53 @@ model Placement {
   @@index([startDate])
   @@index([replacementRequested])
   @@index([replacesPlacementId])
+}
+
+model Invoice {
+  id          String        @id @default(cuid())
+  placementId String
+  invoiceType InvoiceType
+  status      InvoiceStatus @default(DRAFT)
+
+  // Invoice details
+  invoiceNumber String   @unique // e.g., "INV-2025-001234"
+  amount        Int // Amount in cents
+  dueDate       DateTime
+  paidAt        DateTime?
+  sentAt        DateTime?
+  viewedAt      DateTime?
+
+  // Payment details
+  paymentMethod     String? // bank_transfer, wire, check, stripe
+  transactionId     String? // External transaction reference
+  stripeInvoiceId   String? // Stripe invoice ID if using Stripe
+  stripePaymentId   String? // Stripe payment intent ID
+
+  // Invoice content (stored for audit trail)
+  recipientEmail String
+  recipientName  String
+  companyName    String
+  subject        String
+  htmlContent    String? @db.Text // HTML email content sent
+  pdfUrl         String? // URL to PDF invoice (if generated)
+
+  // Metadata
+  feePercentage       Float // Fee percentage at time of invoice
+  upfrontPercentage   Float // Payment split percentage
+  remainingPercentage Float
+  notes               String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  placement Placement @relation(fields: [placementId], references: [id], onDelete: Cascade)
+
+  @@index([placementId])
+  @@index([status])
+  @@index([invoiceType])
+  @@index([dueDate])
+  @@index([invoiceNumber])
 }
 
 model Message {

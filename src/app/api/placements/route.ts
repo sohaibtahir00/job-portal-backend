@@ -4,6 +4,7 @@ import { getCurrentUser, requireAnyRole } from "@/lib/auth";
 import { UserRole, PlacementStatus, PaymentStatus, ApplicationStatus } from "@prisma/client";
 import { calculatePlacementFeeAmounts } from "@/lib/stripe";
 import { calculateFeePercentage } from "@/lib/placement-fee";
+import { sendEmail } from "@/lib/email";
 
 /**
  * POST /api/placements
@@ -19,6 +20,8 @@ import { calculateFeePercentage } from "@/lib/placement-fee";
  *   "startDate": "ISO date string",
  *   "salary": number (in cents),
  *   "feePercentage": number (optional, auto-calculated from job experience level: 15% for Entry/Mid, 18% for Senior, 20% for Executive),
+ *   "upfrontPercentage": number (optional, default 50 - percentage of total fee paid upfront),
+ *   "remainingPercentage": number (optional, default 50 - percentage of total fee paid later),
  *   "guaranteePeriodDays": number (optional, default 90),
  *   "notes": "string" (optional)
  * }
@@ -63,6 +66,8 @@ export async function POST(request: NextRequest) {
       startDate,
       salary,
       feePercentage = 18,
+      upfrontPercentage = 50,
+      remainingPercentage = 50,
       guaranteePeriodDays = 90,
       notes,
     } = body;
@@ -147,9 +152,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate payment split percentages
+    if (typeof upfrontPercentage !== "number" || upfrontPercentage < 0 || upfrontPercentage > 100) {
+      return NextResponse.json(
+        { error: "Upfront percentage must be between 0 and 100" },
+        { status: 400 }
+      );
+    }
+
+    if (typeof remainingPercentage !== "number" || remainingPercentage < 0 || remainingPercentage > 100) {
+      return NextResponse.json(
+        { error: "Remaining percentage must be between 0 and 100" },
+        { status: 400 }
+      );
+    }
+
+    if (Math.abs(upfrontPercentage + remainingPercentage - 100) > 0.01) {
+      return NextResponse.json(
+        { error: "Upfront and remaining percentages must add up to 100" },
+        { status: 400 }
+      );
+    }
+
     // Calculate placement fee based on dynamic fee percentage (15-20% based on experience level)
     const placementFee = Math.round(salary * (dynamicFeePercentage / 100));
-    const { upfrontAmount, remainingAmount } = calculatePlacementFeeAmounts(placementFee);
+
+    // Calculate payment amounts using custom split
+    const upfrontAmount = Math.round(placementFee * (upfrontPercentage / 100));
+    const remainingAmount = placementFee - upfrontAmount; // Ensure exact total
 
     // Calculate guarantee end date
     const startDateObj = new Date(startDate);
@@ -170,6 +200,8 @@ export async function POST(request: NextRequest) {
         startDate: startDateObj,
         salary,
         feePercentage: dynamicFeePercentage,
+        upfrontPercentage,
+        remainingPercentage,
         placementFee,
         upfrontAmount,
         remainingAmount,
@@ -235,6 +267,135 @@ export async function POST(request: NextRequest) {
         availability: false,
       },
     });
+
+    // Send invoice email to employer
+    try {
+      const upfrontDueDate = startDateObj.toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      });
+
+      const remainingDueDate = new Date(startDateObj.getTime() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      });
+
+      const upfrontFormatted = `$${(upfrontAmount / 100).toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
+
+      const remainingFormatted = `$${(remainingAmount / 100).toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
+
+      const totalFormatted = `$${(placementFee / 100).toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
+
+      // Generate invoice number
+      const invoiceCount = await prisma.invoice.count();
+      const invoiceNumber = `INV-${new Date().getFullYear()}-${String(invoiceCount + 1).padStart(6, '0')}`;
+
+      // Build email HTML
+      const emailSubject = `Invoice for Placement: ${candidate.user.name} - ${jobTitle}`;
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #3b82f6;">📄 New Placement Invoice</h2>
+          <p><strong>Invoice #:</strong> ${invoiceNumber}</p>
+          <p>Hi ${placement.employer.user.name},</p>
+          <p>Congratulations on your new placement! Below are the invoice details for <strong>${candidate.user.name}</strong> at <strong>${finalCompanyName}</strong>.</p>
+
+          <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0 0 10px 0;"><strong>Placement Details:</strong></p>
+            <ul style="margin: 0; padding-left: 20px;">
+              <li><strong>Candidate:</strong> ${candidate.user.name}</li>
+              <li><strong>Position:</strong> ${jobTitle}</li>
+              <li><strong>Start Date:</strong> ${upfrontDueDate}</li>
+              <li><strong>Guarantee Period:</strong> ${guaranteePeriodDays} days</li>
+            </ul>
+          </div>
+
+          <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0 0 10px 0;"><strong>💰 Payment Schedule:</strong></p>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr style="border-bottom: 1px solid #ddd;">
+                <td style="padding: 8px;"><strong>Upfront Payment (${upfrontPercentage}%)</strong></td>
+                <td style="padding: 8px; text-align: right;"><strong>${upfrontFormatted}</strong></td>
+              </tr>
+              <tr style="border-bottom: 1px solid #ddd;">
+                <td style="padding: 8px;">Due Date:</td>
+                <td style="padding: 8px; text-align: right;">${upfrontDueDate}</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #ddd;">
+                <td style="padding: 8px;"><strong>Remaining Payment (${remainingPercentage}%)</strong></td>
+                <td style="padding: 8px; text-align: right;"><strong>${remainingFormatted}</strong></td>
+              </tr>
+              <tr style="border-bottom: 1px solid #ddd;">
+                <td style="padding: 8px;">Due Date:</td>
+                <td style="padding: 8px; text-align: right;">${remainingDueDate}</td>
+              </tr>
+              <tr style="background-color: #f0fdf4;">
+                <td style="padding: 12px;"><strong>Total Placement Fee (${dynamicFeePercentage}%)</strong></td>
+                <td style="padding: 12px; text-align: right;"><strong style="font-size: 18px;">${totalFormatted}</strong></td>
+              </tr>
+            </table>
+          </div>
+
+          <div style="background-color: #f0fdf4; border-left: 4px solid #059669; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0 0 10px 0;"><strong>✅ ${guaranteePeriodDays}-Day Guarantee:</strong></p>
+            <p style="margin: 0;">If the candidate leaves within ${guaranteePeriodDays} days of starting, you are eligible for a replacement or refund as per our guarantee policy.</p>
+          </div>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.FRONTEND_URL}/employer/placements/${placement.id}" style="background-color: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; margin-right: 10px;">View Placement</a>
+            <a href="${process.env.FRONTEND_URL}/employer/invoices" style="background-color: #059669; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">View Invoices</a>
+          </div>
+
+          <p>Thank you for using our placement services!</p>
+          <p>Best regards,<br>The Job Portal Team</p>
+        </div>
+      `;
+
+      // Create invoice record in database
+      const invoice = await prisma.invoice.create({
+        data: {
+          placementId: placement.id,
+          invoiceType: "FULL_PAYMENT",
+          status: "SENT",
+          invoiceNumber,
+          amount: placementFee,
+          dueDate: startDateObj,
+          sentAt: new Date(),
+          recipientEmail: placement.employer.user.email,
+          recipientName: placement.employer.user.name,
+          companyName: finalCompanyName,
+          subject: emailSubject,
+          htmlContent: emailHtml,
+          feePercentage: dynamicFeePercentage,
+          upfrontPercentage,
+          remainingPercentage,
+        },
+      });
+
+      // Send email
+      await sendEmail({
+        to: placement.employer.user.email,
+        subject: emailSubject,
+        html: emailHtml,
+      });
+
+      console.log(`[PLACEMENT] Invoice ${invoiceNumber} created and sent to ${placement.employer.user.email}`);
+    } catch (emailError) {
+      console.error(`[PLACEMENT] Failed to send invoice email:`, emailError);
+      // Don't fail placement creation if email fails
+    }
 
     return NextResponse.json(
       {
