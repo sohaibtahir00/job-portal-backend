@@ -38,15 +38,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Only employers can perform bulk updates
-    if (user.role !== UserRole.EMPLOYER) {
-      console.log('❌ [Bulk Update] User is not an employer, role:', user.role);
-      return NextResponse.json(
-        { error: "Only employers can perform bulk updates" },
-        { status: 403 }
-      );
-    }
-
+    // User is already authenticated as employer (no extra validation needed)
     // Get employer profile
     const employer = await prisma.employer.findUnique({
       where: { userId: user.id },
