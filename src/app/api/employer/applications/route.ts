@@ -166,8 +166,6 @@ export async function GET(request: NextRequest) {
             testScore: true,
             testPercentile: true,
             testTier: true,
-            currentTitle: true,
-            currentCompany: true,
             expectedSalary: true,
             resume: true,
             user: {
@@ -176,6 +174,17 @@ export async function GET(request: NextRequest) {
                 name: true,
                 email: true,
                 image: true,
+              },
+            },
+            workExperiences: {
+              orderBy: {
+                startDate: "desc",
+              },
+              take: 1, // Get only the most recent work experience
+              select: {
+                jobTitle: true,
+                companyName: true,
+                isCurrent: true,
               },
             },
           },
@@ -217,41 +226,48 @@ export async function GET(request: NextRequest) {
     console.log('📊 [EMPLOYER/APPLICATIONS] Stats:', stats);
 
     // Transform data to match frontend expectations
-    const transformedApplications = applications.map(app => ({
-      id: app.id,
-      status: app.status,
-      appliedAt: app.appliedAt.toISOString(),
-      reviewedAt: app.reviewedAt?.toISOString() || null,
-      coverLetter: app.coverLetter,
-      job: {
-        id: app.job.id,
-        title: app.job.title,
-        location: app.job.location,
-        type: app.job.type,
-        skills: app.job.skills,
-      },
-      candidate: {
-        id: app.candidate.id,
-        experience: app.candidate.experience,
-        location: app.candidate.location,
-        skills: app.candidate.skills,
-        availability: app.candidate.availability,
-        hasTakenTest: app.candidate.hasTakenTest,
-        testScore: app.candidate.testScore,
-        testPercentile: app.candidate.testPercentile,
-        testTier: app.candidate.testTier,
-        currentTitle: app.candidate.currentTitle,
-        currentCompany: app.candidate.currentCompany,
-        expectedSalary: app.candidate.expectedSalary,
-        resume: app.candidate.resume,
-        user: {
-          name: app.candidate.user.name || '',
-          email: app.candidate.user.email,
-          image: app.candidate.user.image,
+    const transformedApplications = applications.map(app => {
+      // Get current job title and company from most recent work experience
+      const mostRecentWork = app.candidate.workExperiences?.[0];
+      const currentTitle = mostRecentWork?.isCurrent ? mostRecentWork.jobTitle : null;
+      const currentCompany = mostRecentWork?.isCurrent ? mostRecentWork.companyName : null;
+
+      return {
+        id: app.id,
+        status: app.status,
+        appliedAt: app.appliedAt.toISOString(),
+        reviewedAt: app.reviewedAt?.toISOString() || null,
+        coverLetter: app.coverLetter,
+        job: {
+          id: app.job.id,
+          title: app.job.title,
+          location: app.job.location,
+          type: app.job.type,
+          skills: app.job.skills,
         },
-      },
-      testResults: [], // TODO: Add if needed
-    }));
+        candidate: {
+          id: app.candidate.id,
+          experience: app.candidate.experience,
+          location: app.candidate.location,
+          skills: app.candidate.skills,
+          availability: app.candidate.availability,
+          hasTakenTest: app.candidate.hasTakenTest,
+          testScore: app.candidate.testScore,
+          testPercentile: app.candidate.testPercentile,
+          testTier: app.candidate.testTier,
+          currentTitle,
+          currentCompany,
+          expectedSalary: app.candidate.expectedSalary,
+          resume: app.candidate.resume,
+          user: {
+            name: app.candidate.user.name || '',
+            email: app.candidate.user.email,
+            image: app.candidate.user.image,
+          },
+        },
+        testResults: [], // TODO: Add if needed
+      };
+    });
 
     return NextResponse.json({
       applications: transformedApplications,
