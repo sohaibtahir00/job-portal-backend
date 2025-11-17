@@ -13,8 +13,11 @@ export async function POST(request: NextRequest) {
   // IMPORTANT: Check if this is a bulk request
   // Next.js routing sometimes catches /bulk requests here
   const url = new URL(request.url);
-  if (url.pathname.endsWith('/bulk')) {
-    console.log('⚠️ [POST /api/applications] Detected /bulk request, should not be handled here');
+  console.log('🔍 [POST /api/applications] Request URL:', request.url);
+  console.log('🔍 [POST /api/applications] Pathname:', url.pathname);
+
+  if (url.pathname.includes('/bulk')) {
+    console.log('⚠️ [POST /api/applications] Detected /bulk request, handling inline');
     // This is a bulk request - it should be handled by /api/applications/bulk/route.ts
     // But since it's hitting here, handle it inline to unblock the user
 
