@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { UserRole, ApplicationStatus } from "@prisma/client";
 
+// Module load check
+console.log('✅ [BULK ROUTE] Module loaded at /api/applications/bulk/route.ts');
+
 /**
  * POST /api/applications/bulk
  * Bulk update application statuses for employer
@@ -11,6 +14,8 @@ import { UserRole, ApplicationStatus } from "@prisma/client";
  * This endpoint allows employers to update multiple application statuses at once
  */
 export async function POST(request: NextRequest) {
+  console.log('🚨 [BULK ROUTE] POST handler called! URL:', request.url);
+
   try {
     // Get current user
     let user = null;
