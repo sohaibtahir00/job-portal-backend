@@ -92,6 +92,16 @@ export async function GET(
                 image: true,
               },
             },
+            workExperiences: {
+              orderBy: {
+                startDate: "desc",
+              },
+            },
+            educationEntries: {
+              orderBy: {
+                graduationYear: "desc",
+              },
+            },
           },
         },
         testResults: {
