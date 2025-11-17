@@ -111,6 +111,13 @@ export async function POST(
       data: { isConfirmed: true },
     });
 
+    // Update the application status to INTERVIEW_SCHEDULED
+    // This ensures the applicant appears in the "Interview Scheduled" filter
+    await prisma.application.update({
+      where: { id: interview.applicationId },
+      data: { status: "INTERVIEW_SCHEDULED" },
+    });
+
     // TODO: Send email/notification to candidate with meeting link
     // TODO: Create calendar invites for both parties
 
