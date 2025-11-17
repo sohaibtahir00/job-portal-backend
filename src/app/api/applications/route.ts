@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
 
   // Check if this is a bulk request by looking at the request body
   // Bulk requests have 'applicationIds' field (array) instead of 'jobId' field
-  if (requestBody && Array.isArray(requestBody.applicationIds)) {
+  if (requestBody?.applicationIds && Array.isArray(requestBody.applicationIds)) {
     console.log('⚠️ [POST /api/applications] Detected BULK request (has applicationIds array), handling inline');
 
     try {
