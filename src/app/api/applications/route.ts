@@ -10,6 +10,65 @@ import { sendApplicationConfirmationEmail, sendNewApplicationNotificationEmail }
  * Requires CANDIDATE or ADMIN role
  */
 export async function POST(request: NextRequest) {
+  // IMPORTANT: Check if this is a bulk request
+  // Next.js routing sometimes catches /bulk requests here
+  const url = new URL(request.url);
+  if (url.pathname.endsWith('/bulk')) {
+    console.log('⚠️ [POST /api/applications] Detected /bulk request, should not be handled here');
+    // This is a bulk request - it should be handled by /api/applications/bulk/route.ts
+    // But since it's hitting here, handle it inline to unblock the user
+
+    try {
+      const user = await getCurrentUser();
+      if (!user) {
+        return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+      }
+
+      const employer = await prisma.employer.findUnique({
+        where: { userId: user.id },
+        include: { jobs: { select: { id: true } } },
+      });
+
+      if (!employer) {
+        return NextResponse.json({ error: "Employer profile not found" }, { status: 404 });
+      }
+
+      const body = await request.json();
+      const { applicationIds, newStatus } = body;
+
+      if (!applicationIds || !Array.isArray(applicationIds) || applicationIds.length === 0) {
+        return NextResponse.json({ error: "Application IDs array is required" }, { status: 400 });
+      }
+
+      if (!newStatus || !Object.values(ApplicationStatus).includes(newStatus)) {
+        return NextResponse.json({ error: "Valid status is required" }, { status: 400 });
+      }
+
+      const jobIds = employer.jobs.map(j => j.id);
+      const applicationsToUpdate = await prisma.application.findMany({
+        where: { id: { in: applicationIds }, jobId: { in: jobIds } },
+      });
+
+      if (applicationsToUpdate.length !== applicationIds.length) {
+        return NextResponse.json({ error: "Some applications not found or not authorized" }, { status: 403 });
+      }
+
+      const result = await prisma.application.updateMany({
+        where: { id: { in: applicationIds } },
+        data: { status: newStatus, reviewedAt: new Date() },
+      });
+
+      return NextResponse.json({
+        message: `Successfully updated ${result.count} application(s)`,
+        count: result.count,
+        newStatus,
+      });
+    } catch (err) {
+      console.error('Bulk update error:', err);
+      return NextResponse.json({ error: "Failed to update applications" }, { status: 500 });
+    }
+  }
+
   try {
     // Require candidate or admin role
     await requireAnyRole([UserRole.CANDIDATE, UserRole.ADMIN]);
