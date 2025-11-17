@@ -109,6 +109,19 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
+  // Special case: /api/applications/bulk is for employers, not candidates
+  // Let the route handler handle authorization instead of middleware
+  if (pathname === "/api/applications/bulk" || pathname.startsWith("/api/applications/bulk/")) {
+    const response = NextResponse.next();
+    if (isAllowedOrigin) {
+      response.headers.set('Access-Control-Allow-Origin', origin);
+      response.headers.set('Access-Control-Allow-Credentials', 'true');
+      response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+      response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-User-Id, X-User-Email, X-User-Role');
+    }
+    return response;
+  }
+
   // If user is authenticated, check role-based access
   if (isAuthenticated) {
     // Get user role from either token or header authentication
