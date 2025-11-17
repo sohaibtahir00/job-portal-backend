@@ -156,7 +156,20 @@ export async function GET(request: NextRequest) {
           },
         },
         candidate: {
-          include: {
+          select: {
+            id: true,
+            experience: true,
+            location: true,
+            skills: true,
+            availability: true,
+            hasTakenTest: true,
+            testScore: true,
+            testPercentile: true,
+            testTier: true,
+            currentTitle: true,
+            currentCompany: true,
+            expectedSalary: true,
+            resume: true,
             user: {
               select: {
                 id: true,
@@ -229,6 +242,8 @@ export async function GET(request: NextRequest) {
         testTier: app.candidate.testTier,
         currentTitle: app.candidate.currentTitle,
         currentCompany: app.candidate.currentCompany,
+        expectedSalary: app.candidate.expectedSalary,
+        resume: app.candidate.resume,
         user: {
           name: app.candidate.user.name || '',
           email: app.candidate.user.email,
