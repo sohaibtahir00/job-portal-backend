@@ -43,6 +43,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { applicationIds, newStatus } = body;
 
+    console.log("🔍 [Bulk Update] Request received:", {
+      applicationIds,
+      newStatus,
+      employerId: employer.id,
+    });
+
     // Validate
     if (!applicationIds || !Array.isArray(applicationIds) || applicationIds.length === 0) {
       return NextResponse.json(
@@ -60,14 +66,29 @@ export async function POST(request: NextRequest) {
 
     // Verify all applications belong to employer's jobs
     const jobIds = employer.jobs.map(j => j.id);
+    console.log("🏢 [Bulk Update] Employer's job IDs:", jobIds);
+
     const applicationsToUpdate = await prisma.application.findMany({
       where: {
         id: { in: applicationIds },
         jobId: { in: jobIds },
       },
+      select: {
+        id: true,
+        jobId: true,
+        status: true,
+      },
     });
 
+    console.log("📋 [Bulk Update] Applications found:", applicationsToUpdate);
+    console.log("📊 [Bulk Update] Requested:", applicationIds.length, "Found:", applicationsToUpdate.length);
+
     if (applicationsToUpdate.length !== applicationIds.length) {
+      console.error("❌ [Bulk Update] Authorization failed - mismatch in counts");
+      console.error("❌ [Bulk Update] Missing application IDs:",
+        applicationIds.filter(id => !applicationsToUpdate.some(app => app.id === id))
+      );
+
       return NextResponse.json(
         { error: "Some applications not found or not authorized" },
         { status: 403 }
