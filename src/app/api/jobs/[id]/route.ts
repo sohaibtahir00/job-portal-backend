@@ -201,9 +201,30 @@ export async function PATCH(
       salaryMax,
       experienceLevel,
       skills,
+      niceToHaveSkills,
+      techStack,
       benefits,
       deadline,
       slots,
+      // New comprehensive fields
+      nicheCategory,
+      remoteType,
+      keyResponsibilities,
+      equityOffered,
+      specificBenefits,
+      // Skills Assessment
+      requiresAssessment,
+      minSkillsScore,
+      requiredTier,
+      customAssessmentQuestions,
+      // Interview Process
+      interviewRounds,
+      interviewProcess,
+      hiringTimeline,
+      startDateNeeded,
+      // Application Settings
+      maxApplicants,
+      screeningQuestions,
     } = body;
 
     // Validate job type if provided
@@ -261,9 +282,34 @@ export async function PATCH(
     if (salaryMax !== undefined) updateData.salaryMax = salaryMax;
     if (experienceLevel !== undefined) updateData.experienceLevel = experienceLevel;
     if (skills !== undefined) updateData.skills = skills;
+    if (niceToHaveSkills !== undefined) updateData.niceToHaveSkills = niceToHaveSkills;
+    if (techStack !== undefined) updateData.techStack = techStack;
     if (benefits !== undefined) updateData.benefits = benefits;
     if (deadline !== undefined) updateData.deadline = deadline ? new Date(deadline) : null;
     if (slots !== undefined) updateData.slots = slots;
+
+    // New comprehensive fields
+    if (nicheCategory !== undefined) updateData.nicheCategory = nicheCategory;
+    if (remoteType !== undefined) updateData.remoteType = remoteType;
+    if (keyResponsibilities !== undefined) updateData.keyResponsibilities = keyResponsibilities;
+    if (equityOffered !== undefined) updateData.equityOffered = equityOffered;
+    if (specificBenefits !== undefined) updateData.specificBenefits = specificBenefits;
+
+    // Skills Assessment
+    if (requiresAssessment !== undefined) updateData.requiresAssessment = requiresAssessment;
+    if (minSkillsScore !== undefined) updateData.minSkillsScore = minSkillsScore;
+    if (requiredTier !== undefined) updateData.requiredTier = requiredTier;
+    if (customAssessmentQuestions !== undefined) updateData.customAssessmentQuestions = customAssessmentQuestions;
+
+    // Interview Process
+    if (interviewRounds !== undefined) updateData.interviewRounds = interviewRounds;
+    if (interviewProcess !== undefined) updateData.interviewProcess = interviewProcess;
+    if (hiringTimeline !== undefined) updateData.hiringTimeline = hiringTimeline;
+    if (startDateNeeded !== undefined) updateData.startDateNeeded = startDateNeeded ? new Date(startDateNeeded) : null;
+
+    // Application Settings
+    if (maxApplicants !== undefined) updateData.maxApplicants = maxApplicants;
+    if (screeningQuestions !== undefined) updateData.screeningQuestions = screeningQuestions;
 
     // Update the job
     const updatedJob = await prisma.job.update({
