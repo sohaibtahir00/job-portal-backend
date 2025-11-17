@@ -5,8 +5,10 @@ import { UserRole, ApplicationStatus } from "@prisma/client";
 
 /**
  * POST /api/applications/bulk
- * Bulk update application statuses
- * Requires EMPLOYER or ADMIN role
+ * Bulk update application statuses for employer
+ * Requires EMPLOYER role (or ADMIN for override)
+ *
+ * This endpoint allows employers to update multiple application statuses at once
  */
 export async function POST(request: NextRequest) {
   try {
