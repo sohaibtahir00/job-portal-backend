@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser, requireRole } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { UserRole, ApplicationStatus } from "@prisma/client";
 
 /**
@@ -12,14 +12,33 @@ import { UserRole, ApplicationStatus } from "@prisma/client";
  */
 export async function POST(request: NextRequest) {
   try {
-    await requireRole(UserRole.EMPLOYER);
-
-    const user = await getCurrentUser();
+    // Get current user
+    let user = null;
+    try {
+      user = await getCurrentUser();
+      console.log('🔍 [Bulk Update] Current user:', user ? { id: user.id, email: user.email, role: user.role } : 'Not authenticated');
+    } catch (error) {
+      console.log('⚠️ [Bulk Update] No user session');
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
+    }
 
     if (!user) {
+      console.log('❌ [Bulk Update] User not found');
       return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
+        { error: "Authentication required" },
+        { status: 401 }
+      );
+    }
+
+    // Only employers can perform bulk updates
+    if (user.role !== UserRole.EMPLOYER) {
+      console.log('❌ [Bulk Update] User is not an employer, role:', user.role);
+      return NextResponse.json(
+        { error: "Only employers can perform bulk updates" },
+        { status: 403 }
       );
     }
 
