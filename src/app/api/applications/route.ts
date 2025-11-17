@@ -10,16 +10,21 @@ import { sendApplicationConfirmationEmail, sendNewApplicationNotificationEmail }
  * Requires CANDIDATE or ADMIN role
  */
 export async function POST(request: NextRequest) {
-  // IMPORTANT: Check if this is a bulk request
-  // Next.js routing sometimes catches /bulk requests here
-  const url = new URL(request.url);
-  console.log('🔍 [POST /api/applications] Request URL:', request.url);
-  console.log('🔍 [POST /api/applications] Pathname:', url.pathname);
+  // Clone the request to read the body without consuming it
+  const clonedRequest = request.clone();
+  let requestBody;
 
-  if (url.pathname.includes('/bulk')) {
-    console.log('⚠️ [POST /api/applications] Detected /bulk request, handling inline');
-    // This is a bulk request - it should be handled by /api/applications/bulk/route.ts
-    // But since it's hitting here, handle it inline to unblock the user
+  try {
+    requestBody = await clonedRequest.json();
+  } catch (e) {
+    // If body parsing fails, proceed with normal flow
+    requestBody = null;
+  }
+
+  // Check if this is a bulk request by looking at the request body
+  // Bulk requests have 'applicationIds' field (array) instead of 'jobId' field
+  if (requestBody && Array.isArray(requestBody.applicationIds)) {
+    console.log('⚠️ [POST /api/applications] Detected BULK request (has applicationIds array), handling inline');
 
     try {
       const user = await getCurrentUser();
@@ -36,8 +41,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Employer profile not found" }, { status: 404 });
       }
 
-      const body = await request.json();
-      const { applicationIds, newStatus } = body;
+      const { applicationIds, newStatus } = requestBody;
 
       if (!applicationIds || !Array.isArray(applicationIds) || applicationIds.length === 0) {
         return NextResponse.json({ error: "Application IDs array is required" }, { status: 400 });
