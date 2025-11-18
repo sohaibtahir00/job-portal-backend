@@ -66,6 +66,11 @@ export async function GET(req: NextRequest) {
                 title: true,
                 location: true,
                 type: true,
+                employer: {
+                  select: {
+                    companyName: true,
+                  },
+                },
               },
             },
             candidate: {
