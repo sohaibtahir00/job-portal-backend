@@ -260,6 +260,7 @@ export async function GET(request: NextRequest) {
           expectedSalary: app.candidate.expectedSalary,
           resume: app.candidate.resume,
           user: {
+            id: app.candidate.user.id,
             name: app.candidate.user.name || '',
             email: app.candidate.user.email,
             image: app.candidate.user.image,
