@@ -762,6 +762,7 @@ model Interview {
   duration      Int             // Duration in minutes
   type          InterviewType
   status        InterviewStatus @default(PENDING_AVAILABILITY)
+  round         String?         // Interview round name (e.g., "Phone Screen", "Technical Interview")
   location      String?         // For onsite interviews
   meetingLink   String?         // For video interviews
   notes         String?         @db.Text
