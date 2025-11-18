@@ -307,10 +307,10 @@ model Job {
   isExclusive               Boolean @default(false) // Only for skills-verified candidates
 
   // Interview Process
-  interviewRounds  Int? // Number of interview rounds
-  interviewProcess String?   @db.Text // Description of interview process
-  hiringTimeline   String? // Estimate like "2-4 weeks"
-  startDateNeeded  DateTime? // When they need someone to start
+  numberOfInterviewRounds Int? // Number of interview rounds
+  interviewProcess        String?   @db.Text // Description of interview process
+  hiringTimeline          String? // Estimate like "2-4 weeks"
+  startDateNeeded         DateTime? // When they need someone to start
 
   // Application Settings
   maxApplicants      Int? // Maximum number of applicants
@@ -325,13 +325,14 @@ model Job {
   updatedAt DateTime @updatedAt
 
   // Relations
-  employer     Employer      @relation(fields: [employerId], references: [id], onDelete: Cascade)
-  applications Application[]
-  placements   Placement[]
-  savedBy      SavedJob[]
-  shares       JobShare[]
-  profileViews ProfileView[]
-  offers       Offer[]       @relation("JobOffers")
+  employer        Employer         @relation(fields: [employerId], references: [id], onDelete: Cascade)
+  applications    Application[]
+  placements      Placement[]
+  savedBy         SavedJob[]
+  shares          JobShare[]
+  profileViews    ProfileView[]
+  offers          Offer[]          @relation("JobOffers")
+  interviewRounds InterviewRound[]
 
   @@index([employerId])
   @@index([status])
@@ -815,6 +816,24 @@ model InterviewSlotSelection {
   @@index([interviewId])
   @@index([availabilityId])
   @@index([isConfirmed])
+}
+
+// Interview Rounds for structured interview process
+model InterviewRound {
+  id          String   @id @default(cuid())
+  jobId       String
+  name        String // e.g., "Phone Screen", "Technical Interview"
+  description String? // e.g., "Initial conversation with recruiter"
+  duration    Int // in minutes
+  order       Int // 1, 2, 3, etc.
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([order])
 }
 
 // Job Offers
