@@ -69,6 +69,17 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
+  // Exclude OAuth callback routes from authentication (Zoom/Google OAuth need to bypass auth)
+  if (pathname.startsWith("/api/employer/integrations/zoom/callback") ||
+      pathname.startsWith("/api/employer/integrations/google-meet/callback")) {
+    const response = NextResponse.next();
+    if (isAllowedOrigin) {
+      response.headers.set('Access-Control-Allow-Origin', origin);
+      response.headers.set('Access-Control-Allow-Credentials', 'true');
+    }
+    return response;
+  }
+
   // Check for custom authentication headers (for cross-domain requests)
   // Note: We only check if headers EXIST here, actual validation happens in route handlers
   // This allows cross-domain requests to bypass middleware auth and reach route handlers
