@@ -1,23 +1,22 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 
 // GET - Fetch all team members for the employer
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const user = await getCurrentUser();
 
-    if (!session || session.user.role !== "EMPLOYER") {
+    if (!user || user.role !== "EMPLOYER") {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       );
     }
 
-    // Get employer ID from session
+    // Get employer ID from user
     const employer = await prisma.employer.findUnique({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
       select: { id: true },
     });
 
@@ -46,18 +45,18 @@ export async function GET(request: NextRequest) {
 // POST - Add new team member
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const user = await getCurrentUser();
 
-    if (!session || session.user.role !== "EMPLOYER") {
+    if (!user || user.role !== "EMPLOYER") {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       );
     }
 
-    // Get employer ID from session
+    // Get employer ID from user
     const employer = await prisma.employer.findUnique({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
       select: { id: true },
     });
 
@@ -109,18 +108,18 @@ export async function POST(request: NextRequest) {
 // DELETE - Remove team member
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const user = await getCurrentUser();
 
-    if (!session || session.user.role !== "EMPLOYER") {
+    if (!user || user.role !== "EMPLOYER") {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       );
     }
 
-    // Get employer ID from session
+    // Get employer ID from user
     const employer = await prisma.employer.findUnique({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
       select: { id: true },
     });
 
