@@ -92,8 +92,132 @@ export async function POST(
 
     const confirmedTime = selectedSlot.availability;
 
-    // Generate a mock meeting link (in production, you'd integrate with Zoom/Google Meet API)
-    const meetingLink = generateMockMeetingLink(meetingPlatform);
+    // Get employer ID to check for video integrations
+    const employer = await prisma.employer.findUnique({
+      where: { userId: user.id },
+      select: { id: true },
+    });
+
+    if (!employer) {
+      return NextResponse.json(
+        { error: "Employer profile not found" },
+        { status: 404 }
+      );
+    }
+
+    // Generate meeting link (real Zoom/Google Meet if integration exists, otherwise mock)
+    let meetingLink = "";
+
+    // Normalize platform name for comparison
+    const normalizedPlatform = meetingPlatform?.toLowerCase();
+
+    if (normalizedPlatform === "zoom" || normalizedPlatform === "google_meet") {
+      // Try to get real meeting link from video integration
+      const platformKey = normalizedPlatform === "zoom" ? "ZOOM" : "GOOGLE_MEET";
+
+      const integration = await prisma.videoIntegration.findUnique({
+        where: { employerId: employer.id },
+      });
+
+      if (integration && integration.platform === platformKey) {
+        // Generate real meeting link
+        try {
+          if (platformKey === "ZOOM") {
+            // Create Zoom meeting
+            const response = await fetch("https://api.zoom.us/v2/users/me/meetings", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${integration.accessToken}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                topic: `Interview with ${interview.application.candidate.user.name}`,
+                type: 2, // Scheduled meeting
+                start_time: confirmedTime.startTime.toISOString(),
+                duration: 60,
+                timezone: "UTC",
+                settings: {
+                  host_video: true,
+                  participant_video: true,
+                  join_before_host: true,
+                  waiting_room: false,
+                },
+              }),
+            });
+
+            const meetingData = await response.json();
+
+            if (response.ok && meetingData.join_url) {
+              meetingLink = meetingData.join_url;
+            } else {
+              console.error("Zoom API error:", meetingData);
+              // Fall back to mock link if API fails
+              meetingLink = generateMockMeetingLink(meetingPlatform);
+            }
+          } else if (platformKey === "GOOGLE_MEET") {
+            // Create Google Meet via Calendar API
+            const response = await fetch(
+              "https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1",
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${integration.accessToken}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  summary: `Interview with ${interview.application.candidate.user.name}`,
+                  start: {
+                    dateTime: confirmedTime.startTime.toISOString(),
+                    timeZone: "UTC",
+                  },
+                  end: {
+                    dateTime: new Date(confirmedTime.startTime.getTime() + 60 * 60 * 1000).toISOString(),
+                    timeZone: "UTC",
+                  },
+                  conferenceData: {
+                    createRequest: {
+                      requestId: `interview-${params.id}`,
+                      conferenceSolutionKey: {
+                        type: "hangoutsMeet",
+                      },
+                    },
+                  },
+                }),
+              }
+            );
+
+            const eventData = await response.json();
+
+            if (response.ok && eventData.conferenceData?.entryPoints) {
+              const meetUrl = eventData.conferenceData.entryPoints.find(
+                (ep: any) => ep.entryPointType === "video"
+              )?.uri;
+
+              if (meetUrl) {
+                meetingLink = meetUrl;
+              } else {
+                // Fall back to mock link if no URL found
+                meetingLink = generateMockMeetingLink(meetingPlatform);
+              }
+            } else {
+              console.error("Google Calendar API error:", eventData);
+              // Fall back to mock link if API fails
+              meetingLink = generateMockMeetingLink(meetingPlatform);
+            }
+          }
+        } catch (apiError) {
+          console.error("Meeting link generation error:", apiError);
+          // Fall back to mock link on error
+          meetingLink = generateMockMeetingLink(meetingPlatform);
+        }
+      } else {
+        // No integration found, use mock link
+        meetingLink = generateMockMeetingLink(meetingPlatform);
+      }
+    } else {
+      // For other platforms or no platform specified, use mock
+      meetingLink = generateMockMeetingLink(meetingPlatform);
+    }
 
     // Update the interview
     await prisma.interview.update({
@@ -102,6 +226,7 @@ export async function POST(
         status: "SCHEDULED",
         scheduledAt: confirmedTime.startTime,
         meetingLink,
+        videoPlatform: normalizedPlatform === "zoom" ? "ZOOM" : normalizedPlatform === "google_meet" ? "GOOGLE_MEET" : null,
         interviewerId: interviewerId || null, // Add interviewer if provided
         notes: notes || null, // Add notes if provided
       },
@@ -138,7 +263,7 @@ export async function POST(
 }
 
 // Helper function to generate mock meeting links
-// In production, this would integrate with Zoom/Google Meet APIs
+// This is used as a fallback when video integration is not connected
 function generateMockMeetingLink(platform: string): string {
   const randomId = Math.random().toString(36).substring(7);
 
