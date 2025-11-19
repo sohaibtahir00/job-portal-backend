@@ -256,13 +256,14 @@ model Employer {
   updatedAt DateTime @updatedAt
 
   // Relations
-  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  jobs           Job[]
-  emailCampaigns EmailCampaign[]
-  placements     Placement[]
-  profileViews   ProfileView[]
-  madeOffers     Offer[]         @relation("EmployerOffers")
-  teamMembers    TeamMember[]
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobs             Job[]
+  emailCampaigns   EmailCampaign[]
+  placements       Placement[]
+  profileViews     ProfileView[]
+  madeOffers       Offer[]           @relation("EmployerOffers")
+  teamMembers      TeamMember[]
+  videoIntegration VideoIntegration? // Video conferencing integration
 
   @@index([userId])
   @@index([verified])
@@ -768,7 +769,9 @@ model Interview {
   roundName     String?         // Duplicate of round for clarity
   interviewerId String?         // ID of team member conducting interview
   location      String?         // For onsite interviews
-  meetingLink   String?         // For video interviews
+  meetingLink   String?         // For video interviews (manual or auto-generated)
+  videoLink     String?         // Auto-generated Zoom/Meet link
+  videoPlatform String?         // "ZOOM", "GOOGLE_MEET", "CUSTOM"
   notes         String?         @db.Text
   feedback      String?         @db.Text
   createdAt     DateTime        @default(now())
@@ -1014,4 +1017,22 @@ model PasswordResetToken {
   @@index([token])
   @@index([userId])
   @@index([expiresAt])
+}
+
+// Video Conferencing Integration
+model VideoIntegration {
+  id           String    @id @default(cuid())
+  employerId   String    @unique
+  platform     String // "ZOOM" or "GOOGLE_MEET"
+  accessToken  String    @db.Text
+  refreshToken String?   @db.Text
+  expiresAt    DateTime?
+  email        String? // Connected account email
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relations
+  employer Employer @relation(fields: [employerId], references: [id], onDelete: Cascade)
+
+  @@index([employerId])
 }
