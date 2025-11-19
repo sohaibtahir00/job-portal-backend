@@ -13,7 +13,7 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { slotId, meetingPlatform } = await req.json();
+    const { slotId, meetingPlatform, interviewerId } = await req.json();
 
     if (!slotId) {
       return NextResponse.json(
@@ -102,6 +102,7 @@ export async function POST(
         status: "SCHEDULED",
         scheduledAt: confirmedTime.startTime,
         meetingLink,
+        interviewerId: interviewerId || null, // Add interviewer if provided
       },
     });
 

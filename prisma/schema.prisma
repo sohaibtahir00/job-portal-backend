@@ -262,6 +262,7 @@ model Employer {
   placements     Placement[]
   profileViews   ProfileView[]
   madeOffers     Offer[]         @relation("EmployerOffers")
+  teamMembers    TeamMember[]
 
   @@index([userId])
   @@index([verified])
@@ -763,6 +764,9 @@ model Interview {
   type          InterviewType
   status        InterviewStatus @default(PENDING_AVAILABILITY)
   round         String?         // Interview round name (e.g., "Phone Screen", "Technical Interview")
+  roundNumber   Int?            // 1, 2, 3, etc. for tracking progression
+  roundName     String?         // Duplicate of round for clarity
+  interviewerId String?         // ID of team member conducting interview
   location      String?         // For onsite interviews
   meetingLink   String?         // For video interviews
   notes         String?         @db.Text
@@ -772,6 +776,7 @@ model Interview {
 
   // Relations
   application       Application               @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  interviewer       TeamMember?               @relation(fields: [interviewerId], references: [id], onDelete: SetNull)
   availabilitySlots InterviewAvailability[]
   selectedSlots     InterviewSlotSelection[]
 
@@ -780,6 +785,8 @@ model Interview {
   @@index([employerId])
   @@index([scheduledAt])
   @@index([status])
+  @@index([roundNumber])
+  @@index([interviewerId])
 }
 
 // Employer's available time slots for interviews
@@ -817,6 +824,23 @@ model InterviewSlotSelection {
   @@index([interviewId])
   @@index([availabilityId])
   @@index([isConfirmed])
+}
+
+// Team Members who conduct interviews
+model TeamMember {
+  id         String      @id @default(cuid())
+  employerId String
+  name       String
+  email      String
+  title      String? // e.g., "Engineering Manager", "Senior Engineer"
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  // Relations
+  employer   Employer    @relation(fields: [employerId], references: [id], onDelete: Cascade)
+  interviews Interview[]
+
+  @@index([employerId])
 }
 
 // Interview Rounds for structured interview process

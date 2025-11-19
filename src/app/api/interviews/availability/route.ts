@@ -49,6 +49,8 @@ export async function POST(req: NextRequest) {
       duration,
       availabilitySlots, // Array of { startTime, endTime }
       round, // Interview round name from template or manual input
+      roundNumber, // Round number for tracking (1, 2, 3, etc.)
+      roundName, // Round name for clarity
     } = await req.json();
 
     // Validate required fields
@@ -112,7 +114,9 @@ export async function POST(req: NextRequest) {
         duration,
         type,
         status: "AWAITING_CANDIDATE",
-        round: round || null, // Save the round name (e.g., "Phone Screen", "Technical Interview")
+        round: round || roundName || null, // Save the round name (e.g., "Phone Screen", "Technical Interview")
+        roundNumber: roundNumber || null, // Save round number for tracking
+        roundName: roundName || round || null, // Save round name for clarity
         // scheduledAt is null until candidate selects and employer confirms
         availabilitySlots: {
           create: availabilitySlots.map((slot: { startTime: string; endTime: string }) => ({

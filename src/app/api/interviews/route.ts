@@ -85,6 +85,14 @@ export async function GET(req: NextRequest) {
             },
           },
         },
+        interviewer: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            title: true,
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
     });
