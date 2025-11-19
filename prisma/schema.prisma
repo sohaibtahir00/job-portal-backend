@@ -256,14 +256,15 @@ model Employer {
   updatedAt DateTime @updatedAt
 
   // Relations
-  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  jobs             Job[]
-  emailCampaigns   EmailCampaign[]
-  placements       Placement[]
-  profileViews     ProfileView[]
-  madeOffers       Offer[]           @relation("EmployerOffers")
-  teamMembers      TeamMember[]
-  videoIntegration VideoIntegration? // Video conferencing integration
+  user                User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobs                Job[]
+  emailCampaigns      EmailCampaign[]
+  placements          Placement[]
+  profileViews        ProfileView[]
+  madeOffers          Offer[]               @relation("EmployerOffers")
+  teamMembers         TeamMember[]
+  videoIntegration    VideoIntegration? // Video conferencing integration
+  interviewTemplates  InterviewTemplate[] // Custom interview templates
 
   @@index([userId])
   @@index([verified])
@@ -1035,4 +1036,21 @@ model VideoIntegration {
   employer Employer @relation(fields: [employerId], references: [id], onDelete: Cascade)
 
   @@index([employerId])
+}
+
+// Custom Interview Templates
+model InterviewTemplate {
+  id         String   @id @default(cuid())
+  employerId String
+  name       String // e.g., "Standard 3-Round", "Fast-Track"
+  isDefault  Boolean  @default(false)
+  rounds     Json // Array of {name, duration, description}
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  employer Employer @relation(fields: [employerId], references: [id], onDelete: Cascade)
+
+  @@index([employerId])
+  @@index([employerId, isDefault])
 }
