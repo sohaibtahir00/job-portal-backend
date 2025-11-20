@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
 export async function DELETE(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user || session.user.role !== "EMPLOYER") {
+    // Use header-based authentication for cross-domain support
+    const user = await getCurrentUser();
+    if (!user || user.role !== "EMPLOYER") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const employer = await prisma.employer.findUnique({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
     });
 
     if (!employer) {
