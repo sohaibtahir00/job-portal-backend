@@ -69,9 +69,10 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // Exclude OAuth callback routes from authentication (Zoom/Google OAuth need to bypass auth)
+  // Exclude OAuth callback routes from authentication (OAuth callbacks from external providers)
   if (pathname.startsWith("/api/employer/integrations/zoom/callback") ||
-      pathname.startsWith("/api/employer/integrations/google-meet/callback")) {
+      pathname.startsWith("/api/employer/integrations/google-meet/callback") ||
+      pathname.startsWith("/api/employer/integrations/google-calendar/callback")) {
     const response = NextResponse.next();
     if (isAllowedOrigin) {
       response.headers.set('Access-Control-Allow-Origin', origin);
