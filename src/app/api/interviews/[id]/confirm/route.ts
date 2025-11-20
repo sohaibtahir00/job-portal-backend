@@ -111,6 +111,8 @@ export async function POST(
     // Normalize platform name for comparison
     const normalizedPlatform = meetingPlatform?.toLowerCase();
 
+    console.log("[Confirm Interview] Meeting platform requested:", meetingPlatform, "normalized:", normalizedPlatform);
+
     if (normalizedPlatform === "zoom" || normalizedPlatform === "google_meet") {
       // Try to get real meeting link from video integration
       const platformKey = normalizedPlatform === "zoom" ? "ZOOM" : "GOOGLE_MEET";
@@ -119,7 +121,10 @@ export async function POST(
         where: { employerId: employer.id },
       });
 
+      console.log("[Confirm Interview] Video integration found:", !!integration, "platform:", integration?.platform, "expected:", platformKey);
+
       if (integration && integration.platform === platformKey) {
+        console.log("[Confirm Interview] Creating real", platformKey, "meeting");
         // Generate real meeting link
         try {
           if (platformKey === "ZOOM") {
@@ -149,10 +154,12 @@ export async function POST(
 
             if (response.ok && meetingData.join_url) {
               meetingLink = meetingData.join_url;
+              console.log("[Confirm Interview] Zoom meeting created successfully:", meetingLink);
             } else {
-              console.error("Zoom API error:", meetingData);
+              console.error("[Confirm Interview] Zoom API error:", meetingData);
               // Fall back to mock link if API fails
               meetingLink = generateMockMeetingLink(meetingPlatform);
+              console.log("[Confirm Interview] Using mock link due to API error:", meetingLink);
             }
           } else if (platformKey === "GOOGLE_MEET") {
             // Create Google Meet via Calendar API
@@ -206,18 +213,23 @@ export async function POST(
             }
           }
         } catch (apiError) {
-          console.error("Meeting link generation error:", apiError);
+          console.error("[Confirm Interview] Meeting link generation error:", apiError);
           // Fall back to mock link on error
           meetingLink = generateMockMeetingLink(meetingPlatform);
+          console.log("[Confirm Interview] Using mock link due to exception:", meetingLink);
         }
       } else {
         // No integration found, use mock link
+        console.log("[Confirm Interview] No integration found or platform mismatch, using mock link");
         meetingLink = generateMockMeetingLink(meetingPlatform);
       }
     } else {
       // For other platforms or no platform specified, use mock
+      console.log("[Confirm Interview] Unsupported platform, using mock link");
       meetingLink = generateMockMeetingLink(meetingPlatform);
     }
+
+    console.log("[Confirm Interview] Final meeting link:", meetingLink);
 
     // Update the interview
     await prisma.interview.update({
