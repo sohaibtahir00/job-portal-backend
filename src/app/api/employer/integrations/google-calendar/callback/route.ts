@@ -39,11 +39,15 @@ export async function GET(req: NextRequest) {
       hasRefreshToken: !!tokens.refresh_token,
       hasExpiry: !!tokens.expiry_date,
     });
+
+    // Set credentials immediately after getting tokens
     oauth2Client.setCredentials(tokens);
 
-    // Get user email
+    // Get user email using the authenticated client
+    console.log("[OAuth Callback] Fetching user info...");
     const oauth2 = google.oauth2({ version: "v2", auth: oauth2Client });
     const { data } = await oauth2.userinfo.get();
+    console.log("[OAuth Callback] User info retrieved:", { email: data.email });
 
     if (!tokens.access_token || !tokens.refresh_token || !tokens.expiry_date) {
       return NextResponse.redirect(

@@ -12,6 +12,7 @@ const oauth2Client = new google.auth.OAuth2(
 const SCOPES = [
   "https://www.googleapis.com/auth/calendar.readonly",
   "https://www.googleapis.com/auth/calendar.events",
+  "https://www.googleapis.com/auth/userinfo.email", // Needed to get user's email
 ];
 
 // GET: Initiate OAuth flow
