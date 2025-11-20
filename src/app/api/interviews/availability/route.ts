@@ -130,7 +130,98 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // TODO: Send notification/email to candidate about available time slots
+    // Send notification/email to candidate about available time slots
+    try {
+      const candidateName = application.candidate.user.name;
+      const candidateEmail = application.candidate.user.email;
+      const jobTitle = application.job.title;
+      const companyName = application.job.employer?.companyName || "the company";
+      const roundInfo = roundName || round || "Interview";
+
+      // Format availability slots for email
+      const slotsHtml = availabilitySlots.map((slot: any, index: number) => {
+        const startTime = new Date(slot.startTime);
+        const endTime = new Date(slot.endTime);
+
+        const formattedDate = startTime.toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        });
+        const formattedStartTime = startTime.toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        });
+        const formattedEndTime = endTime.toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        });
+
+        return `<li><strong>${formattedDate}</strong> from ${formattedStartTime} to ${formattedEndTime}</li>`;
+      }).join('');
+
+      console.log(`
+=======================================================
+📧 EMAIL NOTIFICATION - Interview Availability Sent
+=======================================================
+To: ${candidateEmail}
+Candidate: ${candidateName}
+Job: ${jobTitle}
+Company: ${companyName}
+Round: ${roundInfo}
+Duration: ${duration} minutes
+
+Available Time Slots:
+${availabilitySlots.map((slot: any) => {
+  const start = new Date(slot.startTime);
+  const end = new Date(slot.endTime);
+  return `  - ${start.toLocaleDateString()} ${start.toLocaleTimeString()} to ${end.toLocaleTimeString()}`;
+}).join('\n')}
+
+Email Content:
+-------------------------------------------------------
+Subject: Interview Availability: ${jobTitle} at ${companyName}
+
+Hi ${candidateName},
+
+Great news! ${companyName} would like to schedule an interview with you for the ${jobTitle} position.
+
+Interview Details:
+- Round: ${roundInfo}
+- Duration: ${duration} minutes
+- Type: ${type}
+
+Available Time Slots (please select your preferred times):
+${availabilitySlots.map((slot: any) => {
+  const start = new Date(slot.startTime);
+  const end = new Date(slot.endTime);
+  return `  - ${start.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} from ${start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} to ${end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+}).join('\n')}
+
+Please log in to your account to select your preferred time slots:
+${process.env.FRONTEND_URL}/candidate/interviews
+
+We look forward to speaking with you!
+
+Best regards,
+${companyName} Hiring Team
+-------------------------------------------------------
+=======================================================
+      `);
+
+      // TODO: Replace with actual email sending when email service is integrated
+      // await sendEmail({
+      //   to: candidateEmail,
+      //   subject: \`Interview Availability: \${jobTitle} at \${companyName}\`,
+      //   html: emailHtml
+      // });
+    } catch (emailError) {
+      console.error("Failed to send availability notification:", emailError);
+      // Don't fail the interview creation if email fails
+    }
 
     return NextResponse.json({ success: true, interview });
   } catch (error) {
