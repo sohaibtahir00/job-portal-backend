@@ -94,11 +94,9 @@ export const authOptions: AuthOptions = {
     },
   },
 
-  // Custom pages
-  pages: {
-    signIn: "/auth/signin",
-    error: "/auth/error",
-  },
+  // No custom pages - backend is API only
+  // Authentication is handled by frontend
+  pages: undefined,
 
   // Enable debug messages in development
   debug: process.env.NODE_ENV === "development",
