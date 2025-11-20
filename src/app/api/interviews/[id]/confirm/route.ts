@@ -128,38 +128,83 @@ export async function POST(
         // Generate real meeting link
         try {
           if (platformKey === "ZOOM") {
-            // Create Zoom meeting
-            const response = await fetch("https://api.zoom.us/v2/users/me/meetings", {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${integration.accessToken}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                topic: `Interview with ${interview.application.candidate.user.name}`,
-                type: 2, // Scheduled meeting
-                start_time: confirmedTime.startTime.toISOString(),
-                duration: 60,
-                timezone: "UTC",
-                settings: {
-                  host_video: true,
-                  participant_video: true,
-                  join_before_host: true,
-                  waiting_room: false,
+            // Check if token is expired and refresh if needed
+            let accessToken = integration.accessToken;
+
+            if (integration.expiresAt && new Date() > integration.expiresAt) {
+              console.log("[Confirm Interview] Zoom token expired, refreshing...");
+
+              const refreshResponse = await fetch("https://zoom.us/oauth/token", {
+                method: "POST",
+                headers: {
+                  "Authorization": `Basic ${Buffer.from(`${process.env.ZOOM_CLIENT_ID}:${process.env.ZOOM_CLIENT_SECRET}`).toString('base64')}`,
+                  "Content-Type": "application/x-www-form-urlencoded",
                 },
-              }),
-            });
+                body: new URLSearchParams({
+                  grant_type: "refresh_token",
+                  refresh_token: integration.refreshToken,
+                }),
+              });
 
-            const meetingData = await response.json();
+              if (refreshResponse.ok) {
+                const refreshData = await refreshResponse.json();
 
-            if (response.ok && meetingData.join_url) {
-              meetingLink = meetingData.join_url;
-              console.log("[Confirm Interview] Zoom meeting created successfully:", meetingLink);
-            } else {
-              console.error("[Confirm Interview] Zoom API error:", meetingData);
-              // Fall back to mock link if API fails
-              meetingLink = generateMockMeetingLink(meetingPlatform);
-              console.log("[Confirm Interview] Using mock link due to API error:", meetingLink);
+                // Update integration with new tokens
+                await prisma.videoIntegration.update({
+                  where: { id: integration.id },
+                  data: {
+                    accessToken: refreshData.access_token,
+                    refreshToken: refreshData.refresh_token || integration.refreshToken,
+                    expiresAt: new Date(Date.now() + refreshData.expires_in * 1000),
+                  },
+                });
+
+                accessToken = refreshData.access_token;
+                console.log("[Confirm Interview] Zoom token refreshed successfully");
+              } else {
+                const errorData = await refreshResponse.json();
+                console.error("[Confirm Interview] Token refresh failed:", errorData);
+                // Fall back to mock link
+                meetingLink = generateMockMeetingLink(meetingPlatform);
+                console.log("[Confirm Interview] Using mock link due to token refresh failure");
+              }
+            }
+
+            // Only proceed with meeting creation if we have a valid token
+            if (accessToken && accessToken !== integration.accessToken || !integration.expiresAt || new Date() <= integration.expiresAt) {
+              // Create Zoom meeting
+              const response = await fetch("https://api.zoom.us/v2/users/me/meetings", {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  topic: `Interview with ${interview.application.candidate.user.name}`,
+                  type: 2, // Scheduled meeting
+                  start_time: confirmedTime.startTime.toISOString(),
+                  duration: 60,
+                  timezone: "UTC",
+                  settings: {
+                    host_video: true,
+                    participant_video: true,
+                    join_before_host: true,
+                    waiting_room: false,
+                  },
+                }),
+              });
+
+              const meetingData = await response.json();
+
+              if (response.ok && meetingData.join_url) {
+                meetingLink = meetingData.join_url;
+                console.log("[Confirm Interview] Zoom meeting created successfully:", meetingLink);
+              } else {
+                console.error("[Confirm Interview] Zoom API error:", meetingData);
+                // Fall back to mock link if API fails
+                meetingLink = generateMockMeetingLink(meetingPlatform);
+                console.log("[Confirm Interview] Using mock link due to API error:", meetingLink);
+              }
             }
           } else if (platformKey === "GOOGLE_MEET") {
             // Create Google Meet via Calendar API
