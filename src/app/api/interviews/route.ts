@@ -94,9 +94,9 @@ export async function GET(req: NextRequest) {
                   },
                   take: 1,
                   select: {
-                    title: true,
-                    company: true,
-                    current: true,
+                    jobTitle: true,
+                    companyName: true,
+                    isCurrent: true,
                   },
                 },
               },
