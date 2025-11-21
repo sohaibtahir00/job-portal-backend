@@ -144,9 +144,27 @@ export async function POST(req: NextRequest) {
       notes,
     } = await req.json();
 
+    // First, get the application to retrieve candidateId and employerId
+    const application = await prisma.application.findUnique({
+      where: { id: applicationId },
+      include: {
+        job: {
+          select: {
+            employerId: true,
+          },
+        },
+      },
+    });
+
+    if (!application) {
+      return NextResponse.json({ error: "Application not found" }, { status: 404 });
+    }
+
     const interview = await prisma.interview.create({
       data: {
         applicationId,
+        candidateId: application.candidateId,
+        employerId: application.job.employerId,
         scheduledAt: new Date(scheduledAt),
         duration,
         type,
@@ -164,7 +182,8 @@ export async function POST(req: NextRequest) {
               },
             },
             candidate: {
-              include: {
+              select: {
+                id: true,
                 user: {
                   select: {
                     name: true,
