@@ -74,7 +74,13 @@ export async function GET(req: NextRequest) {
               },
             },
             candidate: {
-              include: {
+              select: {
+                id: true,
+                location: true,
+                skills: true,
+                experience: true,
+                testScore: true,
+                testTier: true,
                 user: {
                   select: {
                     name: true,
@@ -93,16 +99,6 @@ export async function GET(req: NextRequest) {
                     current: true,
                   },
                 },
-              },
-              select: {
-                id: true,
-                location: true,
-                skills: true,
-                experience: true,
-                testScore: true,
-                testTier: true,
-                user: true,
-                workExperiences: true,
               },
             },
           },
