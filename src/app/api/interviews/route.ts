@@ -79,8 +79,30 @@ export async function GET(req: NextRequest) {
                   select: {
                     name: true,
                     email: true,
+                    image: true,
                   },
                 },
+                workExperiences: {
+                  orderBy: {
+                    startDate: 'desc',
+                  },
+                  take: 1,
+                  select: {
+                    title: true,
+                    company: true,
+                    current: true,
+                  },
+                },
+              },
+              select: {
+                id: true,
+                location: true,
+                skills: true,
+                experience: true,
+                testScore: true,
+                testTier: true,
+                user: true,
+                workExperiences: true,
               },
             },
           },
