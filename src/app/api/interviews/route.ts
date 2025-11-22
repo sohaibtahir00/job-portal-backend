@@ -83,6 +83,7 @@ export async function GET(req: NextRequest) {
                 testTier: true,
                 user: {
                   select: {
+                    id: true,
                     name: true,
                     email: true,
                     image: true,
