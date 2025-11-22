@@ -112,6 +112,7 @@ export async function GET(req: NextRequest) {
             title: true,
           },
         },
+        review: true,
       },
       orderBy: { createdAt: "desc" },
     });

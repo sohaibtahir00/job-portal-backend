@@ -266,6 +266,7 @@ model Employer {
   videoIntegration    VideoIntegration?            // Video conferencing integration
   interviewTemplates  InterviewTemplate[]          // Custom interview templates
   googleCalendar      GoogleCalendarIntegration?   // Google Calendar integration
+  interviewReviews    InterviewReview[]
 
   @@index([userId])
   @@index([verified])
@@ -784,6 +785,7 @@ model Interview {
   interviewer       TeamMember?               @relation(fields: [interviewerId], references: [id], onDelete: SetNull)
   availabilitySlots InterviewAvailability[]
   selectedSlots     InterviewSlotSelection[]
+  review            InterviewReview?
 
   @@index([applicationId])
   @@index([candidateId])
@@ -792,6 +794,30 @@ model Interview {
   @@index([status])
   @@index([roundNumber])
   @@index([interviewerId])
+}
+
+// Interview Reviews (Internal employer assessments)
+model InterviewReview {
+  id              String   @id @default(cuid())
+  interviewId     String   @unique
+  employerId      String
+
+  overallRating   Int      // 1-5
+  technicalSkills String?  // "strong" | "weak" | null
+  communication   String?  // "strong" | "weak" | null
+  cultureFit      String?  // "strong" | "weak" | null
+  problemSolving  String?  // "strong" | "weak" | null
+  notes           String?  @db.Text
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  interview Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  employer  Employer  @relation(fields: [employerId], references: [id])
+
+  @@index([interviewId])
+  @@index([employerId])
 }
 
 // Employer's available time slots for interviews
