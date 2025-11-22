@@ -115,9 +115,44 @@ export async function PATCH(
       });
     }
 
+    // Send feedback email to candidate if feedback was provided
+    if (updates.feedback && interview.application?.candidate?.user?.email) {
+      try {
+        await sendEmail({
+          to: interview.application.candidate.user.email,
+          subject: `Interview Feedback: ${interview.application.job.title}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #3b82f6;">💬 Interview Feedback</h2>
+              <p>Hi ${interview.application.candidate.user.name},</p>
+              <p>Thank you for interviewing for the position of <strong>${interview.application.job.title}</strong>. We wanted to share some feedback from your interview.</p>
+
+              <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0 0 10px 0;"><strong>Feedback:</strong></p>
+                <p style="margin: 0; white-space: pre-wrap;">${updates.feedback}</p>
+              </div>
+
+              <div style="background-color: #f0fdf4; border-left: 4px solid #059669; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0;">We appreciate your time and effort during the interview process. Please use this feedback to help you in your professional development.</p>
+              </div>
+
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.FRONTEND_URL}/candidate/applications" style="background-color: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">View Your Applications</a>
+              </div>
+
+              <p>Best regards,<br>The Job Portal Team</p>
+            </div>
+          `,
+        });
+      } catch (feedbackEmailError) {
+        console.error("Failed to send feedback email:", feedbackEmailError);
+        // Don't fail the update if email fails
+      }
+    }
+
     // Send email notification to candidate about interview update with updated calendar invite
     try {
-      if (interview.scheduledAt) {
+      if (interview.scheduledAt && !updates.feedback) {
         const interviewDate = new Date(interview.scheduledAt);
         const formattedDate = interviewDate.toLocaleDateString('en-US', {
           weekday: 'long',
