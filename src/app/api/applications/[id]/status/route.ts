@@ -64,8 +64,21 @@ export async function PATCH(
 
     // Check permissions (unless admin)
     if (user.role !== UserRole.ADMIN && application.job.employer.userId !== user.id) {
+      console.error("Authorization failed:", {
+        userRole: user.role,
+        userId: user.id,
+        employerUserId: application.job.employer.userId,
+        applicationId: id,
+        jobId: application.job.id,
+      });
       return NextResponse.json(
-        { error: "Forbidden. You can only update applications for your jobs." },
+        {
+          error: "Forbidden. You can only update applications for your jobs.",
+          debug: {
+            yourUserId: user.id,
+            requiredUserId: application.job.employer.userId,
+          }
+        },
         { status: 403 }
       );
     }
