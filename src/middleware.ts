@@ -23,6 +23,9 @@ const protectedRoutes: Record<string, UserRole[]> = {
   "/api/candidates": [UserRole.CANDIDATE, UserRole.ADMIN], // Candidates manage their own profile
   "/api/applications": [UserRole.CANDIDATE, UserRole.ADMIN],
 
+  // Interview routes (both employers and candidates can access)
+  "/api/interviews": [UserRole.EMPLOYER, UserRole.CANDIDATE, UserRole.ADMIN],
+
   // Common authenticated routes (all roles)
   "/dashboard": [UserRole.ADMIN, UserRole.EMPLOYER, UserRole.CANDIDATE],
   "/api/profile": [UserRole.ADMIN, UserRole.EMPLOYER, UserRole.CANDIDATE],
