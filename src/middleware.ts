@@ -21,7 +21,9 @@ const protectedRoutes: Record<string, UserRole[]> = {
   "/api/candidate": [UserRole.CANDIDATE, UserRole.ADMIN],
   "/api/candidates/search": [UserRole.EMPLOYER, UserRole.ADMIN], // Employer searches candidates
   "/api/candidates": [UserRole.CANDIDATE, UserRole.ADMIN], // Candidates manage their own profile
-  "/api/applications": [UserRole.CANDIDATE, UserRole.ADMIN],
+
+  // Application routes (candidates create, employers can update status)
+  "/api/applications": [UserRole.CANDIDATE, UserRole.EMPLOYER, UserRole.ADMIN],
 
   // Interview routes (both employers and candidates can access)
   "/api/interviews": [UserRole.EMPLOYER, UserRole.CANDIDATE, UserRole.ADMIN],
