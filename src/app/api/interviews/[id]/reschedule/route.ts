@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { sendEmail } from "@/lib/email";
 
 // POST /api/interviews/[id]/reschedule - Employer reschedules an interview
 export async function POST(
@@ -96,41 +97,77 @@ export async function POST(
       },
     });
 
-    // Log notification (TODO: Send actual email to candidate)
-    console.log(`
-=======================================================
-📧 EMAIL NOTIFICATION - Interview Rescheduled
-=======================================================
-To: ${originalInterview.application.candidate.user.email}
-Candidate: ${originalInterview.application.candidate.user.name}
-Job: ${originalInterview.application.job.title}
-Reason: ${reason || "Employer requested reschedule"}
+    // Send email notification to candidate about reschedule
+    try {
+      const candidateName = originalInterview.application.candidate.user.name;
+      const candidateEmail = originalInterview.application.candidate.user.email;
+      const jobTitle = originalInterview.application.job.title;
+      const companyName = originalInterview.application.job.employer?.companyName || "the company";
+      const originalDate = originalInterview.scheduledAt;
 
-Original Interview Date: ${originalInterview.scheduledAt?.toLocaleString() || "N/A"}
-Meeting Link: ${originalInterview.meetingLink || "N/A"}
+      const formattedOriginalDate = originalDate
+        ? new Date(originalDate).toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        : "Not yet scheduled";
 
-Email Content:
--------------------------------------------------------
-Subject: Interview Rescheduled: ${originalInterview.application.job.title}
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #f59e0b;">📅 Interview Rescheduled</h2>
+          <p>Hi ${candidateName},</p>
+          <p>We need to reschedule your interview for the <strong>${jobTitle}</strong> position at <strong>${companyName}</strong>.</p>
 
-Hi ${originalInterview.application.candidate.user.name},
+          ${reason ? `
+            <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0;">
+              <p style="margin: 0 0 10px 0;"><strong>Reason:</strong></p>
+              <p style="margin: 0;">${reason}</p>
+            </div>
+          ` : ''}
 
-We need to reschedule your interview for the ${originalInterview.application.job.title} position.
+          <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0 0 10px 0;"><strong>Original Interview Details:</strong></p>
+            <ul style="margin: 0; padding-left: 20px;">
+              <li><strong>Date & Time:</strong> ${formattedOriginalDate}</li>
+              <li><strong>Status:</strong> <span style="color: #f59e0b; font-weight: bold;">Rescheduled</span></li>
+            </ul>
+          </div>
 
-${reason ? `Reason: ${reason}` : ""}
+          <div style="background-color: #d1fae5; border-left: 4px solid #059669; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0 0 10px 0;"><strong>✅ What Happens Next:</strong></p>
+            <ul style="margin: 0; padding-left: 20px;">
+              <li>The employer will provide new available time slots shortly</li>
+              <li>You'll receive an email notification with the new options</li>
+              <li>You can select your preferred times from those options</li>
+              <li>Once confirmed, you'll receive a new calendar invite</li>
+            </ul>
+          </div>
 
-The employer will provide new time slot options shortly. You'll receive a notification once new times are available.
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.FRONTEND_URL}/candidate/interviews" style="background-color: #f59e0b; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-size: 16px; font-weight: bold;">VIEW YOUR INTERVIEWS</a>
+          </div>
 
-We apologize for any inconvenience and look forward to speaking with you soon.
+          <p>We apologize for any inconvenience and look forward to speaking with you soon.</p>
+          <p style="font-size: 12px; color: #6b7280;">If you have any questions, please contact the hiring team through your dashboard.</p>
+          <p>Best regards,<br>${companyName} Hiring Team</p>
+        </div>
+      `;
 
-Best regards,
-Hiring Team
--------------------------------------------------------
-=======================================================
-    `);
+      await sendEmail({
+        to: candidateEmail,
+        subject: `Interview Rescheduled: ${jobTitle} at ${companyName}`,
+        html: emailHtml,
+      });
 
-    // TODO: Send email notification to candidate about reschedule
-    // TODO: Send notification to employer as confirmation
+      console.log(`✅ Reschedule notification email sent to ${candidateEmail} for ${jobTitle}`);
+    } catch (emailError) {
+      console.error("Failed to send reschedule notification:", emailError);
+      // Don't fail the reschedule if email fails
+    }
 
     return NextResponse.json({
       success: true,

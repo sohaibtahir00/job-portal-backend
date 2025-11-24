@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { sendEmail } from "@/lib/email";
 
 // Helper function to get authenticated user
 async function getAuthenticatedUser(req: NextRequest) {
@@ -163,61 +164,56 @@ export async function POST(req: NextRequest) {
         return `<li><strong>${formattedDate}</strong> from ${formattedStartTime} to ${formattedEndTime}</li>`;
       }).join('');
 
-      console.log(`
-=======================================================
-📧 EMAIL NOTIFICATION - Interview Availability Sent
-=======================================================
-To: ${candidateEmail}
-Candidate: ${candidateName}
-Job: ${jobTitle}
-Company: ${companyName}
-Round: ${roundInfo}
-Duration: ${duration} minutes
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #3b82f6;">🎉 Interview Invitation</h2>
+          <p>Hi ${candidateName},</p>
+          <p>Great news! <strong>${companyName}</strong> would like to schedule an interview with you for the <strong>${jobTitle}</strong> position.</p>
 
-Available Time Slots:
-${availabilitySlots.map((slot: any) => {
-  const start = new Date(slot.startTime);
-  const end = new Date(slot.endTime);
-  return `  - ${start.toLocaleDateString()} ${start.toLocaleTimeString()} to ${end.toLocaleTimeString()}`;
-}).join('\n')}
+          <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0 0 10px 0;"><strong>Interview Details:</strong></p>
+            <ul style="margin: 0; padding-left: 20px;">
+              <li><strong>Round:</strong> ${roundInfo}</li>
+              <li><strong>Duration:</strong> ${duration} minutes</li>
+              <li><strong>Type:</strong> ${type}</li>
+            </ul>
+          </div>
 
-Email Content:
--------------------------------------------------------
-Subject: Interview Availability: ${jobTitle} at ${companyName}
+          <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0 0 10px 0;"><strong>📅 Available Time Slots:</strong></p>
+            <p style="margin: 0 0 10px 0; font-size: 14px;">Please select your preferred times from the options below:</p>
+            <ul style="margin: 0; padding-left: 20px;">
+              ${slotsHtml}
+            </ul>
+          </div>
 
-Hi ${candidateName},
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.FRONTEND_URL}/candidate/interviews/select/${interview.id}" style="background-color: #3b82f6; color: white; padding: 15px 40px; text-decoration: none; border-radius: 5px; display: inline-block; font-size: 16px; font-weight: bold;">SELECT YOUR PREFERRED TIMES</a>
+          </div>
 
-Great news! ${companyName} would like to schedule an interview with you for the ${jobTitle} position.
+          <div style="background-color: #f0fdf4; border-left: 4px solid #059669; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0 0 10px 0;"><strong>💡 Next Steps:</strong></p>
+            <ul style="margin: 0; padding-left: 20px;">
+              <li>Review the available time slots above</li>
+              <li>Click the button to select your preferred times (you can select multiple)</li>
+              <li>The employer will confirm the final interview time</li>
+              <li>You'll receive a confirmation email with meeting details</li>
+            </ul>
+          </div>
 
-Interview Details:
-- Round: ${roundInfo}
-- Duration: ${duration} minutes
-- Type: ${type}
+          <p>We look forward to speaking with you!</p>
+          <p style="font-size: 12px; color: #6b7280;">If you have any questions, please visit your dashboard or contact the hiring team.</p>
+          <p>Best regards,<br>${companyName} Hiring Team</p>
+        </div>
+      `;
 
-Available Time Slots (please select your preferred times):
-${availabilitySlots.map((slot: any) => {
-  const start = new Date(slot.startTime);
-  const end = new Date(slot.endTime);
-  return `  - ${start.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} from ${start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} to ${end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
-}).join('\n')}
+      await sendEmail({
+        to: candidateEmail,
+        subject: `Interview Invitation: ${jobTitle} at ${companyName}`,
+        html: emailHtml,
+      });
 
-Please log in to your account to select your preferred time slots:
-${process.env.FRONTEND_URL}/candidate/interviews
-
-We look forward to speaking with you!
-
-Best regards,
-${companyName} Hiring Team
--------------------------------------------------------
-=======================================================
-      `);
-
-      // TODO: Replace with actual email sending when email service is integrated
-      // await sendEmail({
-      //   to: candidateEmail,
-      //   subject: \`Interview Availability: \${jobTitle} at \${companyName}\`,
-      //   html: emailHtml
-      // });
+      console.log(`✅ Interview availability email sent to ${candidateEmail} for ${jobTitle}`);
     } catch (emailError) {
       console.error("Failed to send availability notification:", emailError);
       // Don't fail the interview creation if email fails

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { sendEmail } from "@/lib/email";
+import { generateInterviewCalendarInvite } from "@/lib/calendar";
 
 // POST /api/interviews/[id]/confirm - Employer confirms interview time
 export async function POST(
@@ -302,8 +304,119 @@ export async function POST(
       data: { status: "INTERVIEW_SCHEDULED" },
     });
 
-    // TODO: Send email/notification to candidate with meeting link
-    // TODO: Create calendar invites for both parties
+    // Send confirmation email with meeting link and calendar invite
+    try {
+      const candidateName = interview.application.candidate.user.name;
+      const candidateEmail = interview.application.candidate.user.email;
+      const jobTitle = interview.application.job.title;
+      const companyName = interview.application.job.employer?.companyName || "the company";
+      const interviewDate = new Date(confirmedTime.startTime);
+
+      const formattedDate = interviewDate.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+      const formattedTime = interviewDate.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      });
+
+      // Generate calendar invite
+      const calendarInvite = generateInterviewCalendarInvite({
+        candidateName,
+        candidateEmail,
+        employerName: companyName,
+        jobTitle,
+        startTime: interviewDate,
+        duration: interview.duration,
+        type: interview.type,
+        location: interview.location || undefined,
+        meetingLink: meetingLink || undefined,
+        notes: notes || undefined,
+      });
+
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #059669;">✅ Interview Confirmed!</h2>
+          <p>Hi ${candidateName},</p>
+          <p>Great news! Your interview for <strong>${jobTitle}</strong> at <strong>${companyName}</strong> has been confirmed.</p>
+
+          <div style="background-color: #d1fae5; border-left: 4px solid #059669; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0 0 10px 0;"><strong>📅 Interview Details:</strong></p>
+            <ul style="margin: 0; padding-left: 20px;">
+              <li><strong>Date:</strong> ${formattedDate}</li>
+              <li><strong>Time:</strong> ${formattedTime}</li>
+              <li><strong>Duration:</strong> ${interview.duration} minutes</li>
+              <li><strong>Type:</strong> ${interview.type}</li>
+              ${interview.round ? `<li><strong>Round:</strong> ${interview.round}</li>` : ''}
+            </ul>
+          </div>
+
+          ${meetingLink ? `
+            <div style="background-color: #dbeafe; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0;">
+              <p style="margin: 0 0 10px 0;"><strong>🎥 Meeting Link:</strong></p>
+              <div style="text-align: center; margin: 10px 0;">
+                <a href="${meetingLink}" style="background-color: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-size: 16px; font-weight: bold;">JOIN INTERVIEW</a>
+              </div>
+              <p style="margin: 10px 0 0 0; font-size: 12px; color: #6b7280; word-break: break-all;">Link: ${meetingLink}</p>
+            </div>
+          ` : interview.location ? `
+            <div style="background-color: #dbeafe; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0;">
+              <p style="margin: 0 0 10px 0;"><strong>📍 Location:</strong></p>
+              <p style="margin: 0;">${interview.location}</p>
+            </div>
+          ` : ''}
+
+          ${notes ? `
+            <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0;">
+              <p style="margin: 0 0 10px 0;"><strong>📝 Notes from Employer:</strong></p>
+              <p style="margin: 0;">${notes}</p>
+            </div>
+          ` : ''}
+
+          <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0 0 10px 0;"><strong>💡 Preparation Tips:</strong></p>
+            <ul style="margin: 0; padding-left: 20px;">
+              <li>Review your resume and the job description</li>
+              <li>Prepare questions to ask the interviewer</li>
+              ${interview.type === 'VIDEO' ? '<li>Test your camera, microphone, and internet connection</li>' : ''}
+              ${interview.type === 'VIDEO' ? '<li>Find a quiet, well-lit space</li>' : ''}
+              ${interview.type === 'ONSITE' ? '<li>Plan to arrive 10 minutes early</li>' : ''}
+              <li>Research the company and role</li>
+            </ul>
+          </div>
+
+          <div style="background-color: #e0f2fe; border-left: 4px solid #0284c7; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>📎 Calendar Invite Attached</strong><br>
+            A calendar event (.ics file) is attached. Add it to your calendar so you don't forget!</p>
+          </div>
+
+          <p>Good luck with your interview! 💪</p>
+          <p style="font-size: 12px; color: #6b7280;">You can view more details in your <a href="${process.env.FRONTEND_URL}/candidate/interviews" style="color: #3b82f6;">dashboard</a>.</p>
+          <p>Best regards,<br>${companyName} Hiring Team</p>
+        </div>
+      `;
+
+      await sendEmail({
+        to: candidateEmail,
+        subject: `Interview Confirmed: ${jobTitle} on ${formattedDate}`,
+        html: emailHtml,
+        attachments: [
+          {
+            filename: 'interview.ics',
+            content: calendarInvite,
+          },
+        ],
+      });
+
+      console.log(`✅ Interview confirmation email sent to ${candidateEmail} for ${jobTitle}`);
+    } catch (emailError) {
+      console.error("Failed to send confirmation email:", emailError);
+      // Don't fail the confirmation if email fails
+    }
 
     return NextResponse.json({
       success: true,
