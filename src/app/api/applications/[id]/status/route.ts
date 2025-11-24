@@ -84,7 +84,7 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { status } = body;
+    const { status, rejectionReason } = body;
 
     // Validate status
     if (!status || !Object.values(ApplicationStatus).includes(status)) {
@@ -123,13 +123,23 @@ export async function PATCH(
       );
     }
 
+    // Prepare update data
+    const updateData: any = {
+      status,
+      reviewedAt: status === "REVIEWED" ? new Date() : application.reviewedAt,
+    };
+
+    // If rejecting, store rejection details
+    if (status === "REJECTED") {
+      updateData.rejectionReason = rejectionReason || null;
+      updateData.rejectedBy = user.id;
+      updateData.rejectedAt = new Date();
+    }
+
     // Update application status
     const updatedApplication = await prisma.application.update({
       where: { id },
-      data: {
-        status,
-        reviewedAt: status === "REVIEWED" ? new Date() : application.reviewedAt,
-      },
+      data: updateData,
       include: {
         job: {
           select: {
@@ -164,6 +174,7 @@ export async function PATCH(
       companyName: updatedApplication.job.employer.companyName,
       status: status,
       applicationId: updatedApplication.id,
+      message: status === "REJECTED" && rejectionReason ? rejectionReason : undefined,
     });
 
     return NextResponse.json({

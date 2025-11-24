@@ -351,18 +351,21 @@ model Job {
 }
 
 model Application {
-  id           String            @id @default(cuid())
-  jobId        String
-  candidateId  String
-  coverLetter  String?           @db.Text
-  availability String? // Candidate's availability (e.g., "Immediate", "2 weeks notice")
-  hearAboutUs  String? // How did candidate hear about us
-  status       ApplicationStatus @default(PENDING)
-  appliedAt    DateTime          @default(now())
-  reviewedAt   DateTime?
-  notes        String?           @db.Text
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
+  id              String            @id @default(cuid())
+  jobId           String
+  candidateId     String
+  coverLetter     String?           @db.Text
+  availability    String? // Candidate's availability (e.g., "Immediate", "2 weeks notice")
+  hearAboutUs     String? // How did candidate hear about us
+  status          ApplicationStatus @default(PENDING)
+  appliedAt       DateTime          @default(now())
+  reviewedAt      DateTime?
+  notes           String?           @db.Text
+  rejectionReason String?           @db.Text // Reason for rejection (if rejected)
+  rejectedBy      String? // User ID of employer who rejected
+  rejectedAt      DateTime? // When the application was rejected
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 
   // Relations
   job         Job          @relation(fields: [jobId], references: [id], onDelete: Cascade)
@@ -376,6 +379,7 @@ model Application {
   @@index([candidateId])
   @@index([status])
   @@index([appliedAt])
+  @@index([rejectedBy])
 }
 
 model TestResult {
