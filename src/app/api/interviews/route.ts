@@ -59,7 +59,10 @@ export async function GET(req: NextRequest) {
       where: whereClause,
       include: {
         application: {
-          include: {
+          select: {
+            id: true,
+            status: true,
+            appliedAt: true,
             job: {
               select: {
                 id: true,
