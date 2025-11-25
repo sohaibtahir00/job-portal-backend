@@ -124,18 +124,26 @@ export async function POST(req: NextRequest) {
       // This is a reschedule flow
       isReschedule = true;
 
-      // Mark old interview as RESCHEDULED
+      // Extract reschedule reason from notes BEFORE updating
+      const rescheduleReason = pendingRescheduleInterview.notes
+        ?.split("[PENDING_RESCHEDULE]")[1]
+        ?.trim() || "Employer requested reschedule";
+
+      // Get the original notes (before the [PENDING_RESCHEDULE] marker)
+      const originalNotes = pendingRescheduleInterview.notes
+        ?.split("[PENDING_RESCHEDULE]")[0]
+        ?.trim() || "";
+
+      // Mark old interview as RESCHEDULED and update notes
       await prisma.interview.update({
         where: { id: pendingRescheduleInterview.id },
         data: {
           status: "RESCHEDULED",
+          notes: originalNotes
+            ? `${originalNotes}\n\n[Rescheduled from previous interview] ${rescheduleReason}`
+            : `[Rescheduled from previous interview] ${rescheduleReason}`,
         },
       });
-
-      // Extract reschedule reason from notes
-      const rescheduleReason = pendingRescheduleInterview.notes
-        ?.split("[PENDING_RESCHEDULE]")[1]
-        ?.trim() || "Employer requested reschedule";
 
       // Create new interview with rescheduledFromId
       interview = await prisma.interview.create({
