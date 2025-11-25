@@ -106,30 +106,87 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create interview with AWAITING_CANDIDATE status
-    const interview = await prisma.interview.create({
-      data: {
+    // Check if there's a SCHEDULED interview with [PENDING_RESCHEDULE] marker for this application
+    const pendingRescheduleInterview = await prisma.interview.findFirst({
+      where: {
         applicationId,
-        candidateId: application.candidate.id,
-        employerId: application.job.employer.id,
-        duration,
-        type,
-        status: "AWAITING_CANDIDATE",
-        round: round || roundName || null, // Save the round name (e.g., "Phone Screen", "Technical Interview")
-        roundNumber: roundNumber || null, // Save round number for tracking
-        roundName: roundName || round || null, // Save round name for clarity
-        // scheduledAt is null until candidate selects and employer confirms
-        availabilitySlots: {
-          create: availabilitySlots.map((slot: { startTime: string; endTime: string }) => ({
-            startTime: new Date(slot.startTime),
-            endTime: new Date(slot.endTime),
-          })),
+        status: "SCHEDULED",
+        notes: {
+          contains: "[PENDING_RESCHEDULE]",
         },
       },
-      include: {
-        availabilitySlots: true,
-      },
     });
+
+    let interview;
+    let isReschedule = false;
+
+    if (pendingRescheduleInterview) {
+      // This is a reschedule flow
+      isReschedule = true;
+
+      // Mark old interview as RESCHEDULED
+      await prisma.interview.update({
+        where: { id: pendingRescheduleInterview.id },
+        data: {
+          status: "RESCHEDULED",
+        },
+      });
+
+      // Extract reschedule reason from notes
+      const rescheduleReason = pendingRescheduleInterview.notes
+        ?.split("[PENDING_RESCHEDULE]")[1]
+        ?.trim() || "Employer requested reschedule";
+
+      // Create new interview with rescheduledFromId
+      interview = await prisma.interview.create({
+        data: {
+          applicationId,
+          candidateId: application.candidate.id,
+          employerId: application.job.employer.id,
+          duration,
+          type,
+          status: "AWAITING_CANDIDATE",
+          round: round || roundName || null,
+          roundNumber: roundNumber || null,
+          roundName: roundName || round || null,
+          rescheduledFromId: pendingRescheduleInterview.id,
+          notes: `[Rescheduled from previous interview] ${rescheduleReason}`,
+          availabilitySlots: {
+            create: availabilitySlots.map((slot: { startTime: string; endTime: string }) => ({
+              startTime: new Date(slot.startTime),
+              endTime: new Date(slot.endTime),
+            })),
+          },
+        },
+        include: {
+          availabilitySlots: true,
+        },
+      });
+    } else {
+      // Normal flow - create new interview
+      interview = await prisma.interview.create({
+        data: {
+          applicationId,
+          candidateId: application.candidate.id,
+          employerId: application.job.employer.id,
+          duration,
+          type,
+          status: "AWAITING_CANDIDATE",
+          round: round || roundName || null,
+          roundNumber: roundNumber || null,
+          roundName: roundName || round || null,
+          availabilitySlots: {
+            create: availabilitySlots.map((slot: { startTime: string; endTime: string }) => ({
+              startTime: new Date(slot.startTime),
+              endTime: new Date(slot.endTime),
+            })),
+          },
+        },
+        include: {
+          availabilitySlots: true,
+        },
+      });
+    }
 
     // Send notification/email to candidate about available time slots
     try {
@@ -209,7 +266,9 @@ export async function POST(req: NextRequest) {
 
       await sendEmail({
         to: candidateEmail,
-        subject: `Interview Invitation: ${jobTitle} at ${companyName}`,
+        subject: isReschedule
+          ? `Interview Rescheduled: ${jobTitle} at ${companyName}`
+          : `Interview Invitation: ${jobTitle} at ${companyName}`,
         html: emailHtml,
       });
 

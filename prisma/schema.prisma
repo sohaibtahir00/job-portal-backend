@@ -763,26 +763,27 @@ enum InterviewType {
 }
 
 model Interview {
-  id            String          @id @default(cuid())
-  applicationId String
-  candidateId   String
-  employerId    String
-  scheduledAt   DateTime?       // Optional until confirmed
-  duration      Int             // Duration in minutes
-  type          InterviewType
-  status        InterviewStatus @default(PENDING_AVAILABILITY)
-  round         String?         // Interview round name (e.g., "Phone Screen", "Technical Interview")
-  roundNumber   Int?            // 1, 2, 3, etc. for tracking progression
-  roundName     String?         // Duplicate of round for clarity
-  interviewerId String?         // ID of team member conducting interview
-  location      String?         // For onsite interviews
-  meetingLink   String?         // For video interviews (manual or auto-generated)
-  videoLink     String?         // Auto-generated Zoom/Meet link
-  videoPlatform String?         // "ZOOM", "GOOGLE_MEET", "CUSTOM"
-  notes         String?         @db.Text
-  feedback      String?         @db.Text
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  id                String          @id @default(cuid())
+  applicationId     String
+  candidateId       String
+  employerId        String
+  scheduledAt       DateTime?       // Optional until confirmed
+  duration          Int             // Duration in minutes
+  type              InterviewType
+  status            InterviewStatus @default(PENDING_AVAILABILITY)
+  round             String?         // Interview round name (e.g., "Phone Screen", "Technical Interview")
+  roundNumber       Int?            // 1, 2, 3, etc. for tracking progression
+  roundName         String?         // Duplicate of round for clarity
+  interviewerId     String?         // ID of team member conducting interview
+  location          String?         // For onsite interviews
+  meetingLink       String?         // For video interviews (manual or auto-generated)
+  videoLink         String?         // Auto-generated Zoom/Meet link
+  videoPlatform     String?         // "ZOOM", "GOOGLE_MEET", "CUSTOM"
+  notes             String?         @db.Text
+  feedback          String?         @db.Text
+  rescheduledFromId String?         // Track which interview this was rescheduled from
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 
   // Relations
   application       Application               @relation(fields: [applicationId], references: [id], onDelete: Cascade)
@@ -790,6 +791,8 @@ model Interview {
   availabilitySlots InterviewAvailability[]
   selectedSlots     InterviewSlotSelection[]
   review            InterviewReview?
+  rescheduledFrom   Interview?                @relation("RescheduledInterview", fields: [rescheduledFromId], references: [id], onDelete: SetNull)
+  rescheduledTo     Interview[]               @relation("RescheduledInterview")
 
   @@index([applicationId])
   @@index([candidateId])
@@ -798,6 +801,7 @@ model Interview {
   @@index([status])
   @@index([roundNumber])
   @@index([interviewerId])
+  @@index([rescheduledFromId])
 }
 
 // Interview Reviews (Internal employer assessments)
