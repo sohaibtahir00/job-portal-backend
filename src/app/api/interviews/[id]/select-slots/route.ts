@@ -33,6 +33,7 @@ export async function POST(
               include: {
                 user: {
                   select: {
+                    id: true,
                     name: true,
                     email: true,
                   },
