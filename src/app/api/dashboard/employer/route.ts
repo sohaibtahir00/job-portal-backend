@@ -125,10 +125,8 @@ export async function GET(request: NextRequest) {
     const applicationStats = {
       total: allApplications.length,
       pending: allApplications.filter((a) => a.status === ApplicationStatus.PENDING).length,
-      reviewed: allApplications.filter((a) => a.status === ApplicationStatus.REVIEWED).length,
       shortlisted: allApplications.filter((a) => a.status === ApplicationStatus.SHORTLISTED).length,
-      interviewScheduled: allApplications.filter((a) => a.status === ApplicationStatus.INTERVIEW_SCHEDULED).length,
-      interviewed: allApplications.filter((a) => a.status === ApplicationStatus.INTERVIEWED).length,
+      inInterview: allApplications.filter((a) => a.status === ApplicationStatus.INTERVIEW_SCHEDULED || a.status === ApplicationStatus.INTERVIEWED).length,
       offered: allApplications.filter((a) => a.status === ApplicationStatus.OFFERED).length,
       accepted: allApplications.filter((a) => a.status === ApplicationStatus.ACCEPTED).length,
       rejected: allApplications.filter((a) => a.status === ApplicationStatus.REJECTED).length,

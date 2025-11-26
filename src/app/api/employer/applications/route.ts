@@ -95,7 +95,12 @@ export async function GET(request: NextRequest) {
 
     // Status filter
     if (statusFilter && statusFilter !== "all") {
-      where.status = statusFilter as ApplicationStatus;
+      // Handle combined "INTERVIEW" filter for both INTERVIEW_SCHEDULED and INTERVIEWED
+      if (statusFilter === "INTERVIEW") {
+        where.status = { in: ["INTERVIEW_SCHEDULED", "INTERVIEWED"] };
+      } else {
+        where.status = statusFilter as ApplicationStatus;
+      }
     }
 
     // Skills filter
@@ -213,10 +218,8 @@ export async function GET(request: NextRequest) {
       statusBreakdown: {
         total: applications.length,
         pending: applications.filter(a => a.status === "PENDING").length,
-        reviewed: applications.filter(a => a.status === "REVIEWED").length,
         shortlisted: applications.filter(a => a.status === "SHORTLISTED").length,
-        interviewScheduled: applications.filter(a => a.status === "INTERVIEW_SCHEDULED").length,
-        interviewed: applications.filter(a => a.status === "INTERVIEWED").length,
+        inInterview: applications.filter(a => a.status === "INTERVIEW_SCHEDULED" || a.status === "INTERVIEWED").length,
         offered: applications.filter(a => a.status === "OFFERED").length,
         accepted: applications.filter(a => a.status === "ACCEPTED").length,
         rejected: applications.filter(a => a.status === "REJECTED").length,
