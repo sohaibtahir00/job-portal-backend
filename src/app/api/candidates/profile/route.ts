@@ -256,6 +256,7 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     const {
       phone,
+      photo,
       resume,
       portfolio,
       personalWebsite,
@@ -289,6 +290,7 @@ export async function PATCH(request: NextRequest) {
     const updateData: any = {};
 
     if (phone !== undefined) updateData.phone = phone;
+    if (photo !== undefined) updateData.photo = photo;
     if (resume !== undefined) updateData.resume = resume;
     if (portfolio !== undefined) updateData.portfolio = portfolio;
     if (personalWebsite !== undefined) updateData.personalWebsite = personalWebsite;
