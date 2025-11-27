@@ -172,6 +172,7 @@ model Candidate {
   id               String   @id @default(cuid())
   userId           String   @unique
   phone            String?
+  photo            String? // URL to profile photo
   resume           String? // URL to resume file
   portfolio        String? // URL to portfolio
   personalWebsite  String? // Personal website URL
