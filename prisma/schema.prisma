@@ -236,6 +236,7 @@ model Employer {
   id               String  @id @default(cuid())
   userId           String  @unique
   companyName      String
+  slug             String? @unique // URL-friendly company identifier
   companyLogo      String?
   companyWebsite   String?
   companySize      String?
@@ -273,6 +274,7 @@ model Employer {
   @@index([industry])
   @@index([stripeCustomerId])
   @@index([companyDomain])
+  @@index([slug])
 }
 
 model Job {

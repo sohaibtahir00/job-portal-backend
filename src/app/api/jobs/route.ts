@@ -122,6 +122,7 @@ export async function GET(request: NextRequest) {
         employer: {
           select: {
             id: true,
+            slug: true,
             companyName: true,
             companyLogo: true,
             companyWebsite: true,
@@ -422,6 +423,7 @@ export async function POST(request: NextRequest) {
         employer: {
           select: {
             id: true,
+            slug: true,
             companyName: true,
             companyLogo: true,
             verified: true,

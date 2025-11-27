@@ -22,6 +22,7 @@ export async function GET(
         employer: {
           select: {
             id: true,
+            slug: true,
             companyName: true,
             companyLogo: true,
             companyWebsite: true,
@@ -319,6 +320,7 @@ export async function PATCH(
         employer: {
           select: {
             id: true,
+            slug: true,
             companyName: true,
             companyLogo: true,
             verified: true,
