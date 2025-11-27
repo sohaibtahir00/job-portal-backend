@@ -67,8 +67,12 @@ export async function POST(request: NextRequest) {
     const filepath = join(uploadsDir, filename);
     await writeFile(filepath, buffer);
 
-    // Return public URL
-    const fileUrl = `/uploads/${fileType || "files"}/${filename}`;
+    // Return absolute URL using backend domain
+    // This ensures the URL works when called from the frontend (different domain)
+    const relativePath = `/uploads/${fileType || "files"}/${filename}`;
+    const baseUrl = process.env.NEXTAUTH_URL ||
+      (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : '');
+    const fileUrl = baseUrl ? `${baseUrl}${relativePath}` : relativePath;
 
     return NextResponse.json({
       message: "File uploaded successfully",
