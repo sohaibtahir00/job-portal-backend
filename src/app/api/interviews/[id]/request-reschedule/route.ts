@@ -134,7 +134,7 @@ export async function POST(
         title: "Reschedule Request",
         message: `${candidateName} has requested to reschedule the interview for ${jobTitle}. Reason: ${reason.trim()}`,
         link: `/employer/interviews`,
-        read: false,
+        isRead: false,
       },
     });
 
