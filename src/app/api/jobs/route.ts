@@ -410,7 +410,7 @@ export async function POST(request: NextRequest) {
         requiredTier,
         customAssessmentQuestions,
         // Interview Process
-        interviewRounds,
+        numberOfInterviewRounds: interviewRounds,
         interviewProcess,
         hiringTimeline,
         startDateNeeded: startDateNeeded ? new Date(startDateNeeded) : null,
