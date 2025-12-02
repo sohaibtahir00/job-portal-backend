@@ -45,8 +45,9 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Send email
-    const resetUrl = `${process.env.NEXTAUTH_URL}/reset-password?token=${token}`;
+    // Send email - use FRONTEND_URL for the reset link (not NEXTAUTH_URL which is the backend)
+    const frontendUrl = process.env.FRONTEND_URL || "https://jobportal-rouge-mu.vercel.app";
+    const resetUrl = `${frontendUrl}/reset-password?token=${token}`;
 
     try {
       await sendEmail({
