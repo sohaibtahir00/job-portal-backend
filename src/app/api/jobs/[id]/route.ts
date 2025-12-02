@@ -212,6 +212,7 @@ export async function PATCH(
       remoteType,
       keyResponsibilities,
       equityOffered,
+      isCompetitive,
       specificBenefits,
       // Skills Assessment
       requiresAssessment,
@@ -294,6 +295,7 @@ export async function PATCH(
     if (remoteType !== undefined) updateData.remoteType = remoteType;
     if (keyResponsibilities !== undefined) updateData.keyResponsibilities = keyResponsibilities;
     if (equityOffered !== undefined) updateData.equityOffered = equityOffered;
+    if (isCompetitive !== undefined) updateData.isCompetitive = isCompetitive;
     if (specificBenefits !== undefined) updateData.specificBenefits = specificBenefits;
 
     // Skills Assessment

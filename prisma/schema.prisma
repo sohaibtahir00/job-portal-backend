@@ -305,6 +305,7 @@ model Job {
   remoteType          String? // REMOTE, HYBRID, ONSITE
   keyResponsibilities String[] @default([]) // Bullet points for responsibilities
   equityOffered       Boolean  @default(false)
+  isCompetitive       Boolean  @default(false) // Competitive salary (no specific range disclosed)
   specificBenefits    String[] @default([]) // Health, Dental, 401k, etc.
 
   // Skills Assessment Requirements (CRITICAL NEW FEATURE)

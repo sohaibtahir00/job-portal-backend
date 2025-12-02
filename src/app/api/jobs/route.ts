@@ -319,6 +319,7 @@ export async function POST(request: NextRequest) {
       remoteType,
       keyResponsibilities = [],
       equityOffered = false,
+      isCompetitive = false,
       specificBenefits = [],
       // Skills Assessment (CRITICAL)
       requiresAssessment = false,
@@ -403,6 +404,7 @@ export async function POST(request: NextRequest) {
         remoteType,
         keyResponsibilities,
         equityOffered,
+        isCompetitive,
         specificBenefits,
         // Skills Assessment
         requiresAssessment,
