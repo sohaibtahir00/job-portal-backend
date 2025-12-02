@@ -10,6 +10,10 @@ interface ExtendedUser extends NextAuthUser {
   status: string;
 }
 
+// Session durations
+const SESSION_MAX_AGE_DEFAULT = 24 * 60 * 60; // 1 day (when not remembering)
+const SESSION_MAX_AGE_REMEMBER = 30 * 24 * 60 * 60; // 30 days (when remembering)
+
 export const authOptions: AuthOptions = {
   providers: [
     CredentialsProvider({
@@ -17,6 +21,7 @@ export const authOptions: AuthOptions = {
       credentials: {
         email: { label: "Email", type: "email", placeholder: "email@example.com" },
         password: { label: "Password", type: "password" },
+        rememberMe: { label: "Remember Me", type: "text" },
       },
       async authorize(credentials): Promise<ExtendedUser | null> {
         if (!credentials?.email || !credentials?.password) {
@@ -46,7 +51,7 @@ export const authOptions: AuthOptions = {
           throw new Error("Invalid password");
         }
 
-        // Return user object (password excluded)
+        // Return user object with rememberMe flag (password excluded)
         return {
           id: user.id,
           email: user.email,
@@ -54,7 +59,8 @@ export const authOptions: AuthOptions = {
           image: user.image,
           role: user.role,
           status: user.status,
-        };
+          rememberMe: credentials.rememberMe === "true",
+        } as ExtendedUser & { rememberMe: boolean };
       },
     }),
   ],
@@ -75,10 +81,15 @@ export const authOptions: AuthOptions = {
     async jwt({ token, user }) {
       // Add user data to token on sign in
       if (user) {
-        const extendedUser = user as ExtendedUser;
+        const extendedUser = user as ExtendedUser & { rememberMe?: boolean };
         token.id = extendedUser.id;
         token.role = extendedUser.role;
         token.status = extendedUser.status;
+        token.rememberMe = extendedUser.rememberMe || false;
+
+        // Set token expiration based on rememberMe
+        const maxAge = extendedUser.rememberMe ? SESSION_MAX_AGE_REMEMBER : SESSION_MAX_AGE_DEFAULT;
+        token.exp = Math.floor(Date.now() / 1000) + maxAge;
       }
       return token;
     },
@@ -90,6 +101,12 @@ export const authOptions: AuthOptions = {
         session.user.role = token.role as UserRole;
         session.user.status = token.status as string;
       }
+
+      // Adjust session expiry based on rememberMe
+      if (token.rememberMe) {
+        session.expires = new Date(Date.now() + SESSION_MAX_AGE_REMEMBER * 1000).toISOString();
+      }
+
       return session;
     },
   },
