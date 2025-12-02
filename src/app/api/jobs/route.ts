@@ -336,12 +336,46 @@ export async function POST(request: NextRequest) {
       screeningQuestions,
     } = body;
 
-    // Validate required fields
-    if (!title || !description || !requirements || !responsibilities || !type || !location || !experienceLevel) {
+    // Validate required fields (per business plan)
+    // Required: title, description, type, location, experienceLevel, remoteType, nicheCategory
+    // Salary: must have (salaryMin OR salaryMax) OR isCompetitive
+    if (!title || !description || !type || !location || !experienceLevel) {
       return NextResponse.json(
         {
           error: "Missing required fields",
-          required: ["title", "description", "requirements", "responsibilities", "type", "location", "experienceLevel"]
+          required: ["title", "description", "type", "location", "experienceLevel"]
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validate remoteType is required
+    if (!remoteType) {
+      return NextResponse.json(
+        {
+          error: "Remote type is required",
+          validTypes: ["REMOTE", "HYBRID", "ON_SITE"]
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validate nicheCategory is required
+    if (!nicheCategory) {
+      return NextResponse.json(
+        {
+          error: "Niche category is required"
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validate salary: must have salary range OR mark as competitive
+    const hasSalary = salaryMin || salaryMax;
+    if (!hasSalary && !isCompetitive) {
+      return NextResponse.json(
+        {
+          error: "Salary information is required. Please provide a salary range or mark as competitive salary."
         },
         { status: 400 }
       );
@@ -363,7 +397,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate salary range
+    // Validate salary range (if both provided, min should not exceed max)
     if (salaryMin && salaryMax && salaryMin > salaryMax) {
       return NextResponse.json(
         { error: "Minimum salary cannot be greater than maximum salary" },
