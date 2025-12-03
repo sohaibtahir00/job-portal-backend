@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, requireAnyRole } from "@/lib/auth";
-import { UserRole, ApplicationStatus, JobStatus } from "@prisma/client";
+import { UserRole, ApplicationStatus, JobStatus, NotificationType } from "@prisma/client";
 import { sendApplicationConfirmationEmail, sendNewApplicationNotificationEmail } from "@/lib/email";
 
 /**
@@ -246,6 +246,17 @@ export async function POST(request: NextRequest) {
         applicationId: application.id,
         candidateSkills: candidate.skills,
         candidateExperience: candidate.experience || undefined,
+      });
+
+      // Create in-app notification for employer
+      await prisma.notification.create({
+        data: {
+          userId: employer.userId,
+          type: NotificationType.APPLICATION_UPDATE,
+          title: "New Application Received",
+          message: `${application.candidate.user.name} has applied for ${application.job.title}`,
+          link: `/employer/jobs/${job.id}/applicants`,
+        },
       });
     }
 

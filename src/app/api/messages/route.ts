@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { UserRole } from "@prisma/client";
+import { UserRole, NotificationType } from "@prisma/client";
 import { sendEmail, EMAIL_CONFIG } from "@/lib/email";
 
 /**
@@ -280,6 +280,22 @@ export async function POST(request: NextRequest) {
     } catch (emailError) {
       console.error("Failed to send message notification email:", emailError);
       // Don't fail the message sending if email fails
+    }
+
+    // Create in-app notification for receiver
+    try {
+      const dashboardPath = receiver.role === "EMPLOYER" ? "/employer/messages" : "/candidate/messages";
+      await prisma.notification.create({
+        data: {
+          userId: receiverId,
+          type: NotificationType.MESSAGE_RECEIVED,
+          title: "New Message",
+          message: `${user.name} sent you a message: "${messageSubject}"`,
+          link: dashboardPath,
+        },
+      });
+    } catch (notifError) {
+      console.error("Failed to create message notification:", notifError);
     }
 
     return NextResponse.json(

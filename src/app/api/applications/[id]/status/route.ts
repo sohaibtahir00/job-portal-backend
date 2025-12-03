@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, requireAnyRole } from "@/lib/auth";
-import { UserRole, ApplicationStatus } from "@prisma/client";
+import { UserRole, ApplicationStatus, NotificationType } from "@prisma/client";
 import { sendApplicationStatusUpdateEmail } from "@/lib/email";
 
 /**
@@ -176,6 +176,34 @@ export async function PATCH(
       applicationId: updatedApplication.id,
       message: status === "REJECTED" && rejectionReason ? rejectionReason : undefined,
     });
+
+    // Get candidate userId for notification
+    const candidateRecord = await prisma.candidate.findUnique({
+      where: { id: updatedApplication.candidate.id },
+      select: { userId: true },
+    });
+
+    // Create in-app notification for candidate
+    if (candidateRecord) {
+      const statusLabels: Record<string, string> = {
+        REVIEWED: "Your application is being reviewed",
+        SHORTLISTED: "You've been shortlisted",
+        INTERVIEW_SCHEDULED: "Interview scheduled",
+        INTERVIEWED: "Interview completed",
+        OFFERED: "You've received an offer",
+        REJECTED: "Application update",
+      };
+
+      await prisma.notification.create({
+        data: {
+          userId: candidateRecord.userId,
+          type: NotificationType.APPLICATION_UPDATE,
+          title: statusLabels[status] || "Application Update",
+          message: `Your application for ${updatedApplication.job.title} at ${updatedApplication.job.employer.companyName} has been updated to: ${status.replace(/_/g, " ").toLowerCase()}`,
+          link: `/candidate/applications`,
+        },
+      });
+    }
 
     return NextResponse.json({
       message: `Application status updated to ${status}`,

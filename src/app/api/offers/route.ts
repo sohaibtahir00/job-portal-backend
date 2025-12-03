@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { ApplicationStatus, OfferStatus } from "@prisma/client";
+import { ApplicationStatus, OfferStatus, NotificationType } from "@prisma/client";
 import { sendEmail } from "@/lib/email";
 
 // GET /api/offers - Get all offers (filtered by user role)
@@ -314,6 +314,28 @@ export async function POST(request: NextRequest) {
     } catch (emailError) {
       console.error("Failed to send offer email to candidate:", emailError);
       // Don't fail the offer creation if email fails
+    }
+
+    // Create in-app notification for candidate
+    try {
+      const candidateRecord = await prisma.candidate.findUnique({
+        where: { id: application.candidate.id },
+        select: { userId: true },
+      });
+
+      if (candidateRecord) {
+        await prisma.notification.create({
+          data: {
+            userId: candidateRecord.userId,
+            type: NotificationType.APPLICATION_UPDATE,
+            title: "You've Received a Job Offer!",
+            message: `${employer.companyName} has extended you an offer for ${position}. Review and respond before it expires.`,
+            link: `/candidate/offers`,
+          },
+        });
+      }
+    } catch (notifError) {
+      console.error("Failed to create offer notification:", notifError);
     }
 
     return NextResponse.json(

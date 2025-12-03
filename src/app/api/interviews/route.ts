@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 import { generateInterviewCalendarInvite } from "@/lib/calendar";
+import { NotificationType } from "@prisma/client";
 
 // GET /api/interviews - Get user's interviews
 export async function GET(req: NextRequest) {
@@ -292,6 +293,35 @@ export async function POST(req: NextRequest) {
     } catch (emailError) {
       console.error("Failed to send interview notification email:", emailError);
       // Don't fail the interview creation if email fails
+    }
+
+    // Create in-app notification for candidate
+    try {
+      const candidate = await prisma.candidate.findUnique({
+        where: { id: application.candidateId },
+        select: { userId: true },
+      });
+
+      if (candidate) {
+        const interviewDate = new Date(scheduledAt);
+        const formattedDate = interviewDate.toLocaleDateString('en-US', {
+          weekday: 'long',
+          month: 'long',
+          day: 'numeric',
+        });
+
+        await prisma.notification.create({
+          data: {
+            userId: candidate.userId,
+            type: NotificationType.INTERVIEW_SCHEDULED,
+            title: "Interview Scheduled",
+            message: `Your interview for ${interview.application.job.title} is scheduled for ${formattedDate}`,
+            link: `/candidate/interviews`,
+          },
+        });
+      }
+    } catch (notifError) {
+      console.error("Failed to create interview notification:", notifError);
     }
 
     return NextResponse.json({ success: true, interview });
