@@ -123,8 +123,14 @@ export async function POST(
       calculatePlacementFee(offer.salary, offer.job.experienceLevel);
 
     const startDate = new Date(offer.startDate);
+
+    // Calculate probation end date (90 days from start)
+    const probationEndDate = new Date(startDate);
+    probationEndDate.setDate(probationEndDate.getDate() + 90);
+
+    // Calculate guarantee end date (90 days from start)
     const guaranteeEndDate = new Date(startDate);
-    guaranteeEndDate.setDate(guaranteeEndDate.getDate() + 90); // Add 90 days
+    guaranteeEndDate.setDate(guaranteeEndDate.getDate() + 90);
 
     await prisma.placement.create({
       data: {
@@ -140,6 +146,9 @@ export async function POST(
         placementFee,
         upfrontAmount,
         remainingAmount,
+        probationPeriodDays: 90,
+        probationEndDate,
+        guaranteePeriodDays: 90,
         guaranteeEndDate,
       },
     });

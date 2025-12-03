@@ -181,8 +181,15 @@ export async function POST(request: NextRequest) {
     const upfrontAmount = Math.round(placementFee * (upfrontPercentage / 100));
     const remainingAmount = placementFee - upfrontAmount; // Ensure exact total
 
-    // Calculate guarantee end date
+    // Calculate dates
     const startDateObj = new Date(startDate);
+
+    // Calculate probation end date (default 90 days)
+    const probationPeriodDays = 90;
+    const probationEndDate = new Date(startDateObj);
+    probationEndDate.setDate(probationEndDate.getDate() + probationPeriodDays);
+
+    // Calculate guarantee end date
     const guaranteeEndDate = new Date(startDateObj);
     guaranteeEndDate.setDate(guaranteeEndDate.getDate() + guaranteePeriodDays);
 
@@ -205,6 +212,8 @@ export async function POST(request: NextRequest) {
         placementFee,
         upfrontAmount,
         remainingAmount,
+        probationPeriodDays,
+        probationEndDate,
         guaranteePeriodDays,
         guaranteeEndDate,
         status: PlacementStatus.PENDING,

@@ -440,6 +440,10 @@ model Placement {
   stripePaymentIntentId  String? // Stripe Payment Intent ID for upfront
   stripePaymentIntentId2 String? // Stripe Payment Intent ID for remaining
 
+  // Probation period
+  probationPeriodDays Int       @default(90) // Probation period in days
+  probationEndDate    DateTime? // Calculated: startDate + probationPeriodDays
+
   // Guarantee period
   guaranteePeriodDays Int       @default(90) // Guarantee period in days
   guaranteeEndDate    DateTime? // Calculated: startDate + guaranteePeriodDays
