@@ -62,7 +62,7 @@ export async function GET(
             type: true,
             location: true,
             remote: true,
-            niche: true,
+            nicheCategory: true,
             experienceLevel: true,
           },
         },
