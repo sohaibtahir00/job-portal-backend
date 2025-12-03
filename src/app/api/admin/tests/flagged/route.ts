@@ -5,24 +5,24 @@ import { UserRole } from "@prisma/client";
 
 /**
  * GET /api/admin/tests/flagged
- * Get test results flagged for review
+ * Get test results that might need review based on suspicious patterns
  *
- * Tests may be flagged for various reasons:
- * - Suspiciously high scores (>95 percentile with low completion time)
- * - Multiple retakes with significant score jumps
- * - Unusual patterns in answers
- * - Manual reports from candidates
+ * Since the database doesn't have explicit flagging fields, we identify
+ * potentially suspicious tests based on:
+ * - Very high scores (>= 95)
+ * - Fast completion times
+ * - New accounts with high scores
  *
  * Query Parameters:
  * - page: number (default: 1)
  * - limit: number (default: 20, max: 100)
- * - status: "pending" | "verified" | "rejected" | "all" (default: pending)
- * - sortBy: newest | oldest | score | percentile
+ * - status: "all" (only option for now since no flagging system)
+ * - sortBy: newest | oldest | score
  *
  * Returns:
- * - tests: Array of flagged test results
+ * - tests: Array of suspicious test results
  * - pagination: { total, page, limit, totalPages }
- * - stats: { pending, verified, rejected }
+ * - stats: { total }
  */
 export async function GET(request: NextRequest) {
   try {
@@ -44,30 +44,24 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit;
 
     // Filters
-    const statusFilter = searchParams.get("status") || "pending";
     const sortBy = searchParams.get("sortBy") || "newest";
 
-    // Build where clause for flagged tests
-    const where: any = {
-      isFlagged: true,
+    // Build orderBy
+    let orderBy: any = { lastTestDate: "desc" };
+    if (sortBy === "oldest") orderBy = { lastTestDate: "asc" };
+    if (sortBy === "score") orderBy = { testScore: "desc" };
+
+    // Find candidates with high test scores that might need review
+    // We look for scores >= 90 as potentially suspicious
+    const where = {
+      hasTakenTest: true,
+      testScore: {
+        gte: 90,
+      },
     };
 
-    if (statusFilter === "pending") {
-      where.flagReviewStatus = null;
-    } else if (statusFilter === "verified") {
-      where.flagReviewStatus = "VERIFIED";
-    } else if (statusFilter === "rejected") {
-      where.flagReviewStatus = "REJECTED";
-    }
-
-    // Build orderBy
-    let orderBy: any = { flaggedAt: "desc" };
-    if (sortBy === "oldest") orderBy = { flaggedAt: "asc" };
-    if (sortBy === "score") orderBy = { testScore: "desc" };
-    if (sortBy === "percentile") orderBy = { testPercentile: "desc" };
-
-    // Fetch flagged tests
-    const [tests, total] = await Promise.all([
+    // Fetch potentially suspicious tests
+    const [candidates, total] = await Promise.all([
       prisma.candidate.findMany({
         where,
         skip,
@@ -82,53 +76,38 @@ export async function GET(request: NextRequest) {
               createdAt: true,
             },
           },
+          skillsAssessments: {
+            orderBy: { completedAt: "desc" },
+            take: 1,
+            select: {
+              id: true,
+              score: true,
+              tier: true,
+              duration: true,
+              completedAt: true,
+            },
+          },
         },
       }),
       prisma.candidate.count({ where }),
     ]);
 
-    // Get statistics
-    const [pendingCount, verifiedCount, rejectedCount] = await Promise.all([
-      prisma.candidate.count({
-        where: { isFlagged: true, flagReviewStatus: null },
-      }),
-      prisma.candidate.count({
-        where: { isFlagged: true, flagReviewStatus: "VERIFIED" },
-      }),
-      prisma.candidate.count({
-        where: { isFlagged: true, flagReviewStatus: "REJECTED" },
-      }),
-    ]);
-
-    const stats = {
-      pending: pendingCount,
-      verified: verifiedCount,
-      rejected: rejectedCount,
-      total: pendingCount + verifiedCount + rejectedCount,
-    };
-
-    // Format response
-    const formattedTests = tests.map((candidate) => {
-      // Calculate suspicious indicators
+    // Format response with suspicious indicators
+    const formattedTests = candidates.map((candidate) => {
       const indicators: string[] = [];
+      const assessment = candidate.skillsAssessments[0];
 
       // High score indicator
       if (candidate.testScore && candidate.testScore >= 95) {
-        indicators.push("Very high score");
+        indicators.push("Very high score (95+)");
       }
 
-      // High percentile indicator
-      if (candidate.testPercentile && candidate.testPercentile >= 95) {
-        indicators.push("Top 5% percentile");
-      }
-
-      // Quick completion (if stored)
-      if (candidate.testCompletionTime && candidate.testCompletionTime < 1800) {
-        // Less than 30 minutes
+      // Fast completion indicator (less than 20 minutes for a full assessment)
+      if (assessment?.duration && assessment.duration < 1200) {
         indicators.push("Fast completion time");
       }
 
-      // Recent account with high score
+      // New account with high score
       const accountAge = Date.now() - candidate.user.createdAt.getTime();
       const daysSinceCreation = accountAge / (1000 * 60 * 60 * 24);
       if (daysSinceCreation < 7 && candidate.testScore && candidate.testScore >= 90) {
@@ -146,16 +125,12 @@ export async function GET(request: NextRequest) {
         testScore: candidate.testScore,
         testPercentile: candidate.testPercentile,
         testTier: candidate.testTier,
-        testCompletedAt: candidate.testCompletedAt,
-        testCompletionTime: candidate.testCompletionTime,
-        testAttempts: candidate.testAttempts,
-        flaggedAt: candidate.flaggedAt,
-        flagReason: candidate.flagReason,
-        flagReviewStatus: candidate.flagReviewStatus,
-        flagReviewedAt: candidate.flagReviewedAt,
-        flagReviewNote: candidate.flagReviewNote,
+        testCompletedAt: candidate.lastTestDate,
+        testDuration: assessment?.duration || null,
         suspiciousIndicators: indicators,
-        needsReview: !candidate.flagReviewStatus,
+        // No flagging system implemented yet
+        flagReviewStatus: null,
+        needsReview: indicators.length > 0,
       };
     });
 
@@ -171,7 +146,12 @@ export async function GET(request: NextRequest) {
         totalPages,
         hasMore: page < totalPages,
       },
-      stats,
+      stats: {
+        pending: total, // All are "pending" since no flagging system
+        verified: 0,
+        rejected: 0,
+        total,
+      },
     });
   } catch (error) {
     console.error("Admin flagged tests error:", error);

@@ -62,9 +62,9 @@ export async function GET(request: NextRequest) {
     }
 
     if (statusFilter === "active") {
-      where.suspendedAt = null;
+      where.isActive = true;
     } else if (statusFilter === "suspended") {
-      where.suspendedAt = { not: null };
+      where.isActive = false;
     }
 
     // Build orderBy
@@ -121,8 +121,8 @@ export async function GET(request: NextRequest) {
 
     // Get status statistics
     const [activeCount, suspendedCount] = await Promise.all([
-      prisma.user.count({ where: { suspendedAt: null } }),
-      prisma.user.count({ where: { suspendedAt: { not: null } } }),
+      prisma.user.count({ where: { isActive: true } }),
+      prisma.user.count({ where: { isActive: false } }),
     ]);
 
     const stats = {
@@ -149,9 +149,9 @@ export async function GET(request: NextRequest) {
         emailVerified: user.emailVerified,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
-        suspendedAt: user.suspendedAt,
-        suspensionReason: user.suspensionReason,
-        isSuspended: !!user.suspendedAt,
+        status: user.status,
+        isActive: user.isActive,
+        isSuspended: !user.isActive,
       };
 
       // Add role-specific data
@@ -166,7 +166,6 @@ export async function GET(request: NextRequest) {
             testTier: user.candidate.testTier,
             testScore: user.candidate.testScore,
             testPercentile: user.candidate.testPercentile,
-            profileCompleteness: user.candidate.profileCompleteness,
             availability: user.candidate.availability,
             resume: user.candidate.resume,
             ...(includeStats && {
