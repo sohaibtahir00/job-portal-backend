@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, requireAnyRole } from "@/lib/auth";
-import { UserRole, JobStatus, JobType, ExperienceLevel } from "@prisma/client";
+import { UserRole, JobStatus, JobType, ExperienceLevel, NotificationType } from "@prisma/client";
+import { sendEmail } from "@/lib/email";
 
 /**
  * GET /api/jobs/[id]
@@ -314,6 +315,12 @@ export async function PATCH(
     if (maxApplicants !== undefined) updateData.maxApplicants = maxApplicants;
     if (screeningQuestions !== undefined) updateData.screeningQuestions = screeningQuestions;
 
+    // Check if status is changing to CLOSED or PAUSED
+    const isStatusChangingToInactive =
+      status &&
+      (status === JobStatus.CLOSED || status === JobStatus.PAUSED) &&
+      existingJob.status === JobStatus.ACTIVE;
+
     // Update the job
     const updatedJob = await prisma.job.update({
       where: { id },
@@ -330,6 +337,79 @@ export async function PATCH(
         },
       },
     });
+
+    // Notify applicants if job is closed or paused
+    if (isStatusChangingToInactive) {
+      const statusLabel = status === JobStatus.CLOSED ? "closed" : "paused";
+      const statusTitle = status === JobStatus.CLOSED ? "Job Closed" : "Job Paused";
+
+      // Get all applicants with active applications
+      const applicants = await prisma.application.findMany({
+        where: {
+          jobId: id,
+          status: {
+            in: ["PENDING", "REVIEWED", "SHORTLISTED", "INTERVIEW_SCHEDULED", "INTERVIEWED", "OFFERED"],
+          },
+        },
+        include: {
+          candidate: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  notifyApplicationUpdates: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      // Notify each applicant
+      for (const app of applicants) {
+        // Create notification
+        await prisma.notification.create({
+          data: {
+            userId: app.candidate.user.id,
+            type: NotificationType.JOB_STATUS_CHANGE,
+            title: statusTitle,
+            message: `The position "${existingJob.title}" at ${updatedJob.employer.companyName} has been ${statusLabel}. ${status === JobStatus.PAUSED ? "The employer may reopen this position in the future." : "Thank you for your interest."}`,
+            link: `/candidate/applications`,
+          },
+        });
+
+        // Send email notification if enabled
+        if (app.candidate.user.notifyApplicationUpdates) {
+          try {
+            await sendEmail({
+              to: app.candidate.user.email,
+              subject: `Update: ${existingJob.title} - ${statusTitle}`,
+              html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                  <h2 style="color: ${status === JobStatus.CLOSED ? "#dc2626" : "#f59e0b"};">${statusTitle}</h2>
+                  <p>Dear ${app.candidate.user.name},</p>
+                  <p>We wanted to let you know that the position <strong>${existingJob.title}</strong> at <strong>${updatedJob.employer.companyName}</strong> has been ${statusLabel}.</p>
+                  ${status === JobStatus.PAUSED
+                    ? "<p>The employer may reopen this position in the future. We'll notify you if that happens.</p>"
+                    : "<p>Thank you for your interest and the time you invested in your application.</p>"}
+                  <p>We encourage you to continue exploring other opportunities on our platform.</p>
+                  <div style="text-align: center; margin: 30px 0;">
+                    <a href="${process.env.FRONTEND_URL}/jobs" style="background-color: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">Browse More Jobs</a>
+                  </div>
+                  <p>Best regards,<br>The Job Portal Team</p>
+                </div>
+              `,
+            });
+          } catch (emailError) {
+            console.error(`[JOB] Failed to notify applicant ${app.candidate.user.email}:`, emailError);
+          }
+        }
+      }
+
+      console.log(`[JOB] Job ${id} ${statusLabel}. Notified ${applicants.length} applicants.`);
+    }
 
     return NextResponse.json({
       message: "Job updated successfully",

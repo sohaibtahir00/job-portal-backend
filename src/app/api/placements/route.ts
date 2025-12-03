@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { UserRole, PlacementStatus, PaymentStatus, ApplicationStatus } from "@prisma/client";
+import { UserRole, PlacementStatus, PaymentStatus, ApplicationStatus, JobStatus, NotificationType } from "@prisma/client";
 import { calculatePlacementFeeAmounts } from "@/lib/stripe";
 import { calculateFeePercentage } from "@/lib/placement-fee";
 import { sendEmail } from "@/lib/email";
@@ -276,6 +276,92 @@ export async function POST(request: NextRequest) {
         availability: false,
       },
     });
+
+    // If there's an associated job, mark it as FILLED and notify other applicants
+    if (jobId && job) {
+      // Check if all slots are now filled
+      const placementCount = await prisma.placement.count({
+        where: {
+          jobId,
+          status: {
+            in: [PlacementStatus.PENDING, PlacementStatus.ACTIVE, PlacementStatus.CONFIRMED, PlacementStatus.COMPLETED],
+          },
+        },
+      });
+
+      // If placements >= slots, mark job as FILLED
+      if (placementCount >= (job.slots || 1)) {
+        await prisma.job.update({
+          where: { id: jobId },
+          data: { status: JobStatus.FILLED },
+        });
+
+        // Get all other applicants (not the one who just got hired) who are still in active states
+        const otherApplicants = await prisma.application.findMany({
+          where: {
+            jobId,
+            candidateId: { not: candidateId },
+            status: {
+              in: ["PENDING", "REVIEWED", "SHORTLISTED", "INTERVIEW_SCHEDULED", "INTERVIEWED", "OFFERED"],
+            },
+          },
+          include: {
+            candidate: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    notifyApplicationUpdates: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        // Notify other applicants that the position has been filled
+        for (const app of otherApplicants) {
+          // Create notification
+          await prisma.notification.create({
+            data: {
+              userId: app.candidate.user.id,
+              type: NotificationType.JOB_STATUS_CHANGE,
+              title: "Position Filled",
+              message: `The position "${job.title}" at ${finalCompanyName} has been filled. Thank you for your interest.`,
+              link: `/candidate/applications`,
+            },
+          });
+
+          // Send email notification if enabled
+          if (app.candidate.user.notifyApplicationUpdates) {
+            try {
+              await sendEmail({
+                to: app.candidate.user.email,
+                subject: `Update: ${job.title} Position Filled`,
+                html: `
+                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2 style="color: #3b82f6;">Position Update</h2>
+                    <p>Dear ${app.candidate.user.name},</p>
+                    <p>We wanted to let you know that the position <strong>${job.title}</strong> at <strong>${finalCompanyName}</strong> has been filled.</p>
+                    <p>Thank you for your interest and the time you invested in your application. We encourage you to continue exploring other opportunities on our platform.</p>
+                    <div style="text-align: center; margin: 30px 0;">
+                      <a href="${process.env.FRONTEND_URL}/jobs" style="background-color: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">Browse More Jobs</a>
+                    </div>
+                    <p>Best regards,<br>The Job Portal Team</p>
+                  </div>
+                `,
+              });
+            } catch (emailError) {
+              console.error(`[PLACEMENT] Failed to notify applicant ${app.candidate.user.email}:`, emailError);
+            }
+          }
+        }
+
+        console.log(`[PLACEMENT] Job ${jobId} marked as FILLED. Notified ${otherApplicants.length} other applicants.`);
+      }
+    }
 
     // Send invoice email to employer
     try {
