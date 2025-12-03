@@ -21,12 +21,16 @@ export async function GET(request: NextRequest) {
     // Filters
     const location = searchParams.get("location");
     const remote = searchParams.get("remote");
+    const remoteType = searchParams.get("remoteType"); // REMOTE, HYBRID, ON_SITE
     const type = searchParams.get("type") as JobType | null;
     const experienceLevel = searchParams.get("experienceLevel") as ExperienceLevel | null;
     const search = searchParams.get("search"); // Search in title or description
     const employerId = searchParams.get("employerId");
     const status = searchParams.get("status") as JobStatus | null;
     const exclusiveOnly = searchParams.get("exclusiveOnly") === "true"; // Filter for exclusive jobs only
+    const niche = searchParams.get("niche"); // nicheCategory filter
+    const salaryMin = searchParams.get("salaryMin");
+    const salaryMax = searchParams.get("salaryMax");
 
     // Build where clause
     const where: any = {};
@@ -46,12 +50,38 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    if (remote !== null) {
+    if (remote !== null && remote !== undefined) {
       where.remote = remote === "true";
+    }
+
+    // Filter by remoteType (REMOTE, HYBRID, ON_SITE)
+    if (remoteType) {
+      where.remoteType = remoteType;
     }
 
     if (type && Object.values(JobType).includes(type)) {
       where.type = type;
+    }
+
+    // Filter by niche category
+    if (niche) {
+      where.nicheCategory = {
+        contains: niche,
+        mode: "insensitive",
+      };
+    }
+
+    // Filter by salary range
+    if (salaryMin) {
+      where.salaryMax = {
+        gte: parseInt(salaryMin),
+      };
+    }
+
+    if (salaryMax) {
+      where.salaryMin = {
+        lte: parseInt(salaryMax),
+      };
     }
 
     if (experienceLevel && Object.values(ExperienceLevel).includes(experienceLevel)) {
