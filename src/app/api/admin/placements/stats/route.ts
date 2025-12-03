@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
+import { UserRole, PlacementStatus, PaymentStatus } from "@prisma/client";
 
 /**
  * GET /api/admin/placements/stats
@@ -8,7 +9,14 @@ import { requireRole } from "@/lib/auth";
  */
 export async function GET(req: NextRequest) {
   try {
-    await requireRole("ADMIN");
+    const user = await getCurrentUser();
+
+    if (!user || user.role !== UserRole.ADMIN) {
+      return NextResponse.json(
+        { error: "Unauthorized. Admin access required." },
+        { status: 403 }
+      );
+    }
 
     const { searchParams } = new URL(req.url);
     const startDate = searchParams.get("startDate");
@@ -28,31 +36,34 @@ export async function GET(req: NextRequest) {
       where.createdAt = dateFilter;
     }
 
-    // Get all placements
+    // Get all placements with invoices
     const placements = await prisma.placement.findMany({
       where,
       include: {
-        invoice: true,
+        invoices: true,
       },
     });
 
     // Calculate statistics
     const totalPlacements = placements.length;
-    const totalFees = placements.reduce((sum, p) => sum + p.placementFee, 0);
+    const totalFees = placements.reduce((sum, p) => sum + (p.placementFee || 0), 0);
 
+    // Check payment status using the paymentStatus field on placement
     const paidPlacements = placements.filter(
-      (p) => p.invoice && p.invoice.status === "PAID"
+      (p) => p.paymentStatus === PaymentStatus.FULLY_PAID
     );
-    const paidFees = paidPlacements.reduce((sum, p) => sum + p.placementFee, 0);
+    const paidFees = paidPlacements.reduce((sum, p) => sum + (p.placementFee || 0), 0);
 
-    const pendingPlacements = placements.filter(
-      (p) => !p.invoice || p.invoice.status === "PENDING"
+    const pendingPaymentPlacements = placements.filter(
+      (p) => p.paymentStatus === PaymentStatus.PENDING || p.paymentStatus === PaymentStatus.UPFRONT_PAID
     );
-    const pendingFees = pendingPlacements.reduce((sum, p) => sum + p.placementFee, 0);
+    const pendingFees = pendingPaymentPlacements.reduce((sum, p) => sum + (p.placementFee || 0), 0);
 
-    const activePlacements = placements.filter((p) => p.status === "ACTIVE");
-    const completedPlacements = placements.filter((p) => p.status === "COMPLETED");
-    const failedPlacements = placements.filter((p) => p.status === "FAILED");
+    // Status-based filtering using PlacementStatus enum
+    const pendingPlacements = placements.filter((p) => p.status === PlacementStatus.PENDING);
+    const confirmedPlacements = placements.filter((p) => p.status === PlacementStatus.CONFIRMED);
+    const completedPlacements = placements.filter((p) => p.status === PlacementStatus.COMPLETED);
+    const cancelledPlacements = placements.filter((p) => p.status === PlacementStatus.CANCELLED);
 
     // Calculate average fee
     const averageFee = totalPlacements > 0 ? totalFees / totalPlacements : 0;
@@ -64,8 +75,8 @@ export async function GET(req: NextRequest) {
       (p) => new Date(p.createdAt) >= firstDayOfMonth
     );
     const monthlyRevenue = monthlyPlacements.reduce((sum, p) => {
-      if (p.invoice && p.invoice.status === "PAID") {
-        return sum + p.placementFee;
+      if (p.paymentStatus === PaymentStatus.FULLY_PAID) {
+        return sum + (p.placementFee || 0);
       }
       return sum;
     }, 0);
@@ -80,14 +91,14 @@ export async function GET(req: NextRequest) {
         averageFee,
         monthlyRevenue,
         byStatus: {
-          active: activePlacements.length,
-          completed: completedPlacements.length,
-          failed: failedPlacements.length,
           pending: pendingPlacements.length,
+          confirmed: confirmedPlacements.length,
+          completed: completedPlacements.length,
+          cancelled: cancelledPlacements.length,
         },
         byPayment: {
           paid: paidPlacements.length,
-          pending: pendingPlacements.length,
+          pending: pendingPaymentPlacements.length,
         },
       },
     });
