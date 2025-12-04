@@ -1,14 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+// Get frontend URL - prioritize FRONTEND_URL, then NEXT_PUBLIC_FRONTEND_URL, then production fallback
+function getFrontendUrl(): string {
+  return process.env.FRONTEND_URL
+    || process.env.NEXT_PUBLIC_FRONTEND_URL
+    || "https://aimltalenthub.com";
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const token = searchParams.get("token");
+    const frontendUrl = getFrontendUrl();
 
     if (!token) {
       // Redirect to error page with message
-      const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "http://localhost:3001";
       return NextResponse.redirect(
         `${frontendUrl}/login?error=invalid_token&message=Invalid verification link`
       );
@@ -21,7 +28,6 @@ export async function GET(request: NextRequest) {
     });
 
     if (!verificationToken) {
-      const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "http://localhost:3001";
       return NextResponse.redirect(
         `${frontendUrl}/login?error=invalid_token&message=Invalid or expired verification link`
       );
@@ -29,7 +35,6 @@ export async function GET(request: NextRequest) {
 
     // Check if token is already used
     if (verificationToken.used) {
-      const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "http://localhost:3001";
       return NextResponse.redirect(
         `${frontendUrl}/login?error=token_used&message=This verification link has already been used`
       );
@@ -37,7 +42,6 @@ export async function GET(request: NextRequest) {
 
     // Check if token is expired
     if (verificationToken.expiresAt < new Date()) {
-      const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "http://localhost:3001";
       return NextResponse.redirect(
         `${frontendUrl}/login?error=token_expired&message=Verification link has expired. Please request a new one.`
       );
@@ -56,13 +60,12 @@ export async function GET(request: NextRequest) {
     ]);
 
     // Redirect to login page with success message (user needs to login first)
-    const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "http://localhost:3001";
     return NextResponse.redirect(
       `${frontendUrl}/login?verified=true`
     );
   } catch (error) {
     console.error("Email verification error:", error);
-    const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "http://localhost:3001";
+    const frontendUrl = getFrontendUrl();
     return NextResponse.redirect(
       `${frontendUrl}/login?error=verification_failed&message=An error occurred during verification`
     );
