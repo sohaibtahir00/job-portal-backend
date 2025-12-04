@@ -35,24 +35,6 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Check if user signed up with OAuth (Google) - they don't need email verification
-    const oauthAccount = await prisma.account.findFirst({
-      where: { userId: user.id },
-    });
-
-    if (oauthAccount) {
-      // OAuth users are auto-verified
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { emailVerified: new Date() },
-      });
-
-      return NextResponse.json({
-        message: "Email is already verified. Please login.",
-        alreadyVerified: true,
-      });
-    }
-
     // Delete any existing unused verification tokens for this user
     await prisma.emailVerificationToken.deleteMany({
       where: {
