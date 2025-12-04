@@ -19,10 +19,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find user by email
+    // Find user by email with accounts to check OAuth status
     const user = await prisma.user.findUnique({
       where: {
         email,
+      },
+      include: {
+        accounts: true, // Check if user has OAuth accounts
       },
     });
 
@@ -48,6 +51,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Invalid password" },
         { status: 401 }
+      );
+    }
+
+    // Check email verification for non-OAuth users
+    // OAuth users (Google) are considered verified by their provider
+    const isOAuthUser = user.accounts && user.accounts.length > 0;
+    if (!isOAuthUser && !user.emailVerified) {
+      return NextResponse.json(
+        { error: "EMAIL_NOT_VERIFIED" },
+        { status: 403 }
       );
     }
 
