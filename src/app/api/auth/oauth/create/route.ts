@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
           candidate: {
             create: {
               skills: [],
-              availability: "IMMEDIATE",
+              availability: true,
             },
           },
         }),
