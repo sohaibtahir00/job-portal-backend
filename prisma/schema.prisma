@@ -155,15 +155,16 @@ model User {
   notifyMarketingEmails   Boolean @default(false)
 
   // Relations
-  candidate           Candidate?
-  employer            Employer?
-  sentMessages        Message[]            @relation("SentMessages")
-  receivedMessages    Message[]            @relation("ReceivedMessages")
-  referrals           Referral[]           @relation("UserReferrals")
-  referredBy          Referral[]           @relation("ReferredUsers")
-  blogPosts           BlogPost[]
-  notifications       Notification[]
-  passwordResetTokens PasswordResetToken[]
+  candidate                Candidate?
+  employer                 Employer?
+  sentMessages             Message[]                 @relation("SentMessages")
+  receivedMessages         Message[]                 @relation("ReceivedMessages")
+  referrals                Referral[]                @relation("UserReferrals")
+  referredBy               Referral[]                @relation("ReferredUsers")
+  blogPosts                BlogPost[]
+  notifications            Notification[]
+  passwordResetTokens      PasswordResetToken[]
+  emailVerificationTokens  EmailVerificationToken[]
 
   @@index([email])
   @@index([role])
@@ -1054,6 +1055,22 @@ model Campaign {
 
 // Password Reset Tokens
 model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// Email Verification Tokens
+model EmailVerificationToken {
   id        String   @id @default(cuid())
   userId    String
   token     String   @unique

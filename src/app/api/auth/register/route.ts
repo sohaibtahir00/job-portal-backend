@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, validateEmail, validatePassword } from "@/lib/auth";
 import { UserRole } from "@prisma/client";
-import { sendCandidateWelcomeEmail, sendEmployerWelcomeEmail } from "@/lib/email";
+import { sendEmailVerificationEmail } from "@/lib/email";
+import crypto from "crypto";
 
 export async function POST(request: NextRequest) {
   try {
@@ -85,35 +86,43 @@ export async function POST(request: NextRequest) {
           availability: true,
         },
       });
-
-      // Send welcome email to candidate
-      await sendCandidateWelcomeEmail({
-        email: user.email,
-        name: user.name,
-      });
     } else if (userRole === UserRole.EMPLOYER) {
       // For employer registration, you might want to require company name
       // This is a basic example
-      const employer = await prisma.employer.create({
+      await prisma.employer.create({
         data: {
           userId: user.id,
           companyName: name, // You may want to accept this separately
           verified: false,
         },
       });
-
-      // Send welcome email to employer
-      await sendEmployerWelcomeEmail({
-        email: user.email,
-        name: user.name,
-        companyName: employer.companyName,
-      });
     }
+
+    // Generate email verification token
+    const verificationToken = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
+
+    // Save verification token
+    await prisma.emailVerificationToken.create({
+      data: {
+        userId: user.id,
+        token: verificationToken,
+        expiresAt,
+      },
+    });
+
+    // Send verification email
+    await sendEmailVerificationEmail({
+      email: user.email,
+      name: user.name,
+      verificationToken,
+    });
 
     return NextResponse.json(
       {
-        message: "User registered successfully",
+        message: "User registered successfully. Please check your email to verify your account.",
         user,
+        requiresVerification: true,
       },
       { status: 201 }
     );

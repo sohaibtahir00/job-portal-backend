@@ -850,6 +850,77 @@ export async function sendPaymentSuccessEmail(data: {
   });
 }
 
+/**
+ * Email verification for new users
+ */
+export async function sendEmailVerificationEmail(data: {
+  email: string;
+  name: string;
+  verificationToken: string;
+}) {
+  const verificationUrl = `${EMAIL_CONFIG.appUrl}/api/auth/verify-email?token=${data.verificationToken}`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #4F46E5; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+          .button { display: inline-block; background: #4F46E5; color: white; padding: 14px 40px; text-decoration: none; border-radius: 6px; margin: 25px 0; font-weight: bold; font-size: 16px; }
+          .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 14px; }
+          .icon { font-size: 48px; text-align: center; margin: 20px 0; }
+          .note { background: #F3F4F6; padding: 15px; border-radius: 6px; font-size: 14px; color: #6B7280; margin-top: 20px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Verify Your Email</h1>
+          </div>
+          <div class="content">
+            <div class="icon">📧</div>
+
+            <p>Hi ${data.name},</p>
+
+            <p>Thanks for signing up for ${EMAIL_CONFIG.appName}!</p>
+
+            <p>Click the button below to verify your email address and complete your account setup:</p>
+
+            <div style="text-align: center;">
+              <a href="${verificationUrl}" class="button">Verify Email Address</a>
+            </div>
+
+            <div class="note">
+              <p style="margin: 0;"><strong>Note:</strong> This link expires in 24 hours.</p>
+              <p style="margin: 10px 0 0 0;">If you didn't create an account with ${EMAIL_CONFIG.appName}, you can safely ignore this email.</p>
+            </div>
+
+            <p style="margin-top: 30px;">If the button doesn't work, copy and paste this link into your browser:</p>
+            <p style="word-break: break-all; color: #4F46E5; font-size: 14px;">${verificationUrl}</p>
+
+            <p>Best regards,<br>The ${EMAIL_CONFIG.appName} Team</p>
+          </div>
+          <div class="footer">
+            <p>This email was sent to ${data.email}</p>
+            <p>&copy; ${new Date().getFullYear()} ${EMAIL_CONFIG.appName}. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to: data.email,
+    subject: `Verify your ${EMAIL_CONFIG.appName} account`,
+    html,
+    text: `Hi ${data.name}, Thanks for signing up! Please verify your email by visiting: ${verificationUrl}. This link expires in 24 hours.`,
+  });
+}
+
 export default {
   sendCandidateWelcomeEmail,
   sendEmployerWelcomeEmail,
@@ -860,4 +931,5 @@ export default {
   sendPaymentReminderEmail,
   sendApplicationStatusUpdateEmail,
   sendPaymentSuccessEmail,
+  sendEmailVerificationEmail,
 };

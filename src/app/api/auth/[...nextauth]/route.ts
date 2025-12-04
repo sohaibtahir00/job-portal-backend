@@ -45,6 +45,9 @@ export const authOptions: AuthOptions = {
           where: {
             email: credentials.email,
           },
+          include: {
+            accounts: true, // Check if user has OAuth accounts
+          },
         });
 
         if (!user) {
@@ -61,6 +64,13 @@ export const authOptions: AuthOptions = {
 
         if (!isPasswordValid) {
           throw new Error("Invalid password");
+        }
+
+        // Check email verification for non-OAuth users
+        // OAuth users (Google) are considered verified by their provider
+        const isOAuthUser = user.accounts && user.accounts.length > 0;
+        if (!isOAuthUser && !user.emailVerified) {
+          throw new Error("EMAIL_NOT_VERIFIED");
         }
 
         // Return user object with rememberMe flag (password excluded)
