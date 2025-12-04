@@ -185,11 +185,15 @@ model Candidate {
   skills           String[] // Array of skills
   currentRole      String? // Current job title (e.g., "Machine Learning Engineer")
   experience       Int? // Years of experience
-  education        String?  @db.Text
+  education        String?  @db.Text // TODO: DEPRECATED - Remove in future migration. Use Education model instead.
   location         String?
   preferredJobType JobType?
   expectedSalary   Int?
   availability     Boolean  @default(true)
+
+  // Privacy settings
+  showEmail        Boolean  @default(false) // Show email on public profile
+  showPhone        Boolean  @default(false) // Show phone on public profile
 
   // Enhanced job preferences
   desiredRoles          String[]  @default([])
