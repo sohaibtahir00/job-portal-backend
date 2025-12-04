@@ -182,6 +182,7 @@ model Candidate {
   github           String?
   bio              String?  @db.Text
   skills           String[] // Array of skills
+  currentRole      String? // Current job title (e.g., "Machine Learning Engineer")
   experience       Int? // Years of experience
   education        String?  @db.Text
   location         String?

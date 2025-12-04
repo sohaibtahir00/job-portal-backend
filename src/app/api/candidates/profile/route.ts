@@ -161,6 +161,7 @@ export async function POST(request: NextRequest) {
       github,
       bio,
       skills = [],
+      currentRole,
       experience,
       education,
       location,
@@ -188,6 +189,7 @@ export async function POST(request: NextRequest) {
         github,
         bio,
         skills,
+        currentRole,
         experience,
         education,
         location,
@@ -264,6 +266,7 @@ export async function PATCH(request: NextRequest) {
       github,
       bio,
       skills,
+      currentRole,
       experience,
       education,
       location,
@@ -298,6 +301,7 @@ export async function PATCH(request: NextRequest) {
     if (github !== undefined) updateData.github = github;
     if (bio !== undefined) updateData.bio = bio;
     if (skills !== undefined) updateData.skills = skills;
+    if (currentRole !== undefined) updateData.currentRole = currentRole;
     if (experience !== undefined) updateData.experience = experience;
     if (education !== undefined) updateData.education = education;
     if (location !== undefined) updateData.location = location;
