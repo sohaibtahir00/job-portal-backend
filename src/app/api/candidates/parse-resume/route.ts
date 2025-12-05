@@ -9,11 +9,35 @@ export const runtime = "nodejs";
 // Maximum file size: 5MB
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
-// Dynamic imports for PDF and DOCX parsing to avoid Edge runtime issues
+// Extract text from PDF using pdf2json (pure Node.js, no browser APIs)
 async function extractTextFromPDF(buffer: Buffer): Promise<string> {
-  const pdfParse = (await import("pdf-parse")).default;
-  const data = await pdfParse(buffer);
-  return data.text;
+  const PDFParser = (await import("pdf2json")).default;
+
+  return new Promise((resolve, reject) => {
+    const pdfParser = new PDFParser();
+
+    pdfParser.on("pdfParser_dataError", (errData: { parserError: Error }) => {
+      reject(errData.parserError);
+    });
+
+    pdfParser.on("pdfParser_dataReady", (pdfData: { Pages: Array<{ Texts: Array<{ R: Array<{ T: string }> }> }> }) => {
+      try {
+        // Extract text from all pages
+        const text = pdfData.Pages.map(page => {
+          return page.Texts.map(textItem => {
+            return textItem.R.map(r => decodeURIComponent(r.T)).join("");
+          }).join(" ");
+        }).join("\n\n");
+
+        resolve(text);
+      } catch (error) {
+        reject(error);
+      }
+    });
+
+    // Parse PDF from buffer - pdf2json needs to parse from buffer directly
+    pdfParser.parseBuffer(buffer);
+  });
 }
 
 async function extractTextFromDOCX(buffer: Buffer): Promise<string> {
