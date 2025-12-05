@@ -3,22 +3,12 @@ import { requireAnyRole } from "@/lib/auth";
 import { UserRole } from "@prisma/client";
 import OpenAI from "openai";
 
-// Force Node.js runtime
-export const runtime = "nodejs";
-
 // Maximum file size: 5MB
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
-// Extract text from DOCX using mammoth (lightweight, works in Node.js)
-async function extractTextFromDOCX(buffer: Buffer): Promise<string> {
-  const mammoth = await import("mammoth");
-  const result = await mammoth.extractRawText({ buffer });
-  return result.value;
-}
-
 /**
  * POST /api/candidates/parse-resume
- * Parse a resume file (PDF or DOCX) and extract structured data using AI
+ * Parse a resume PDF and extract structured data using AI
  * Requires CANDIDATE role
  */
 export async function POST(request: NextRequest) {
@@ -53,14 +43,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file type
+    // Validate file type - PDF only for now
     const fileName = file.name.toLowerCase();
     const isPDF = fileName.endsWith(".pdf") || file.type === "application/pdf";
-    const isDOCX = fileName.endsWith(".docx") || file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
-    if (!isPDF && !isDOCX) {
+    if (!isPDF) {
       return NextResponse.json(
-        { error: "Please upload a PDF or DOCX file" },
+        { error: "Please upload a PDF file" },
         { status: 400 }
       );
     }
@@ -72,8 +61,9 @@ export async function POST(request: NextRequest) {
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+    const base64File = buffer.toString("base64");
 
-    // Parse resume using GPT-4
+    // Parse resume using GPT-4o with native PDF support
     try {
       const parsePrompt = `Extract the following information from this resume and return as JSON only (no markdown, no explanation, no code blocks):
 
@@ -121,77 +111,37 @@ Important parsing rules:
 - For GPA, only include if explicitly mentioned.
 - Return null for any field that cannot be determined from the resume.`;
 
-      let completion;
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: "You are a professional resume parser. Extract structured data from resume documents accurately. Return only valid JSON, no explanations."
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: parsePrompt
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:application/pdf;base64,${base64File}`
+                }
+              }
+            ]
+          }
+        ],
+        temperature: 0.2,
+        max_tokens: 4096
+      });
 
-      if (isPDF) {
-        // For PDFs, use GPT-4 Vision with base64 encoded file
-        const base64File = buffer.toString("base64");
-
-        completion = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: "You are a professional resume parser. Extract structured data from resume documents accurately. Return only valid JSON, no explanations."
-            },
-            {
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: parsePrompt
-                },
-                {
-                  type: "file",
-                  file: {
-                    filename: file.name,
-                    file_data: `data:application/pdf;base64,${base64File}`
-                  }
-                } as any
-              ]
-            }
-          ],
-          temperature: 0.2,
-          response_format: { type: "json_object" }
-        });
-      } else {
-        // For DOCX, extract text first then send to GPT-4
-        let resumeText = "";
-        try {
-          resumeText = await extractTextFromDOCX(buffer);
-        } catch (extractError) {
-          console.error("Text extraction error:", extractError);
-          return NextResponse.json(
-            { error: "Couldn't read your resume. Please try a different file or fill in manually." },
-            { status: 400 }
-          );
-        }
-
-        if (!resumeText || resumeText.trim().length < 50) {
-          return NextResponse.json(
-            { error: "Couldn't extract enough text from your resume. Please try a different file or fill in manually." },
-            { status: 400 }
-          );
-        }
-
-        completion = await openai.chat.completions.create({
-          model: "gpt-4-turbo-preview",
-          messages: [
-            {
-              role: "system",
-              content: "You are a professional resume parser. Extract structured data from resume text accurately. Return only valid JSON, no explanations."
-            },
-            {
-              role: "user",
-              content: `${parsePrompt}\n\nResume text:\n${resumeText.substring(0, 12000)}`
-            }
-          ],
-          temperature: 0.2,
-          response_format: { type: "json_object" }
-        });
-      }
-
-      const parsedData = JSON.parse(completion.choices[0].message.content || "{}");
+      const content = completion.choices[0].message.content || "{}";
+      // Clean up the response - remove markdown code blocks if present
+      const cleanedContent = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      const parsedData = JSON.parse(cleanedContent);
 
       // Validate and sanitize the response
       const sanitizedData = {
@@ -202,7 +152,7 @@ Important parsing rules:
         currentRole: typeof parsedData.currentRole === "string" ? parsedData.currentRole.trim() : null,
         experience: typeof parsedData.experience === "number" ? Math.max(0, Math.round(parsedData.experience)) : 0,
         skills: Array.isArray(parsedData.skills)
-          ? parsedData.skills.filter((s: any) => typeof s === "string").slice(0, 20)
+          ? parsedData.skills.filter((s: unknown) => typeof s === "string").slice(0, 20)
           : [],
         linkedIn: typeof parsedData.linkedIn === "string" && parsedData.linkedIn.includes("linkedin.com")
           ? parsedData.linkedIn.trim()
@@ -217,7 +167,7 @@ Important parsing rules:
           ? parsedData.portfolio.trim()
           : null,
         workExperience: Array.isArray(parsedData.workExperience)
-          ? parsedData.workExperience.map((exp: any) => ({
+          ? parsedData.workExperience.map((exp: Record<string, unknown>) => ({
               companyName: typeof exp.companyName === "string" ? exp.companyName.trim() : "Unknown Company",
               jobTitle: typeof exp.jobTitle === "string" ? exp.jobTitle.trim() : "Unknown Role",
               startDate: typeof exp.startDate === "string" ? exp.startDate : null,
@@ -228,7 +178,7 @@ Important parsing rules:
             })).slice(0, 10)
           : [],
         education: Array.isArray(parsedData.education)
-          ? parsedData.education.map((edu: any) => ({
+          ? parsedData.education.map((edu: Record<string, unknown>) => ({
               schoolName: typeof edu.schoolName === "string" ? edu.schoolName.trim() : "Unknown School",
               degree: typeof edu.degree === "string" ? edu.degree.trim() : "Unknown Degree",
               fieldOfStudy: typeof edu.fieldOfStudy === "string" ? edu.fieldOfStudy.trim() : "Unknown Field",
@@ -247,7 +197,7 @@ Important parsing rules:
     } catch (aiError) {
       console.error("OpenAI parsing error:", aiError);
       return NextResponse.json(
-        { error: "Failed to analyze your resume. The AI service may be unavailable. Please try again or fill in manually." },
+        { error: "Failed to analyze your resume. Please try again or fill in manually." },
         { status: 500 }
       );
     }
