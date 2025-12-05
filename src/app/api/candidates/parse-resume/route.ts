@@ -6,69 +6,22 @@ import OpenAI from "openai";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-
 /**
  * POST /api/candidates/parse-resume
  * Parse resume text using AI to extract structured data
- * Accepts plain text extracted from resume (client-side extraction)
+ * Accepts JSON with pre-extracted text from client-side PDF.js parsing
  */
 export async function POST(request: NextRequest) {
   try {
     await requireAnyRole([UserRole.CANDIDATE, UserRole.ADMIN]);
 
-    const contentType = request.headers.get("content-type") || "";
+    // Parse JSON body with pre-extracted text
+    const body = await request.json();
+    const resumeText = body.text || "";
 
-    let resumeText = "";
-
-    // Handle JSON body with pre-extracted text
-    if (contentType.includes("application/json")) {
-      const body = await request.json();
-      resumeText = body.text || "";
-
-      if (!resumeText || resumeText.trim().length < 50) {
-        return NextResponse.json(
-          { error: "Resume text is too short or empty" },
-          { status: 400 }
-        );
-      }
-    }
-    // Handle FormData with file - extract text server-side using simple approach
-    else if (contentType.includes("multipart/form-data")) {
-      const formData = await request.formData();
-      const file = formData.get("resume") as File | null;
-
-      if (!file) {
-        return NextResponse.json(
-          { error: "No file provided" },
-          { status: 400 }
-        );
-      }
-
-      if (file.size > MAX_FILE_SIZE) {
-        return NextResponse.json(
-          { error: "File size exceeds 5MB limit" },
-          { status: 400 }
-        );
-      }
-
-      // For PDF files, we'll send the raw content to GPT-4 and let it extract what it can
-      // This is a simple approach that doesn't require PDF parsing libraries
-      const arrayBuffer = await file.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-
-      // Try to extract readable text from the buffer (works for text-based PDFs)
-      resumeText = extractTextFromBuffer(buffer);
-
-      if (!resumeText || resumeText.trim().length < 50) {
-        return NextResponse.json(
-          { error: "Could not extract text from PDF. Please ensure the PDF contains selectable text, not scanned images." },
-          { status: 400 }
-        );
-      }
-    } else {
+    if (!resumeText || resumeText.trim().length < 50) {
       return NextResponse.json(
-        { error: "Invalid content type. Send JSON with text field or FormData with resume file." },
+        { error: "Resume text is too short or empty. Please ensure the PDF contains selectable text." },
         { status: 400 }
       );
     }
@@ -175,59 +128,4 @@ Important:
       { status: 500 }
     );
   }
-}
-
-/**
- * Simple text extraction from PDF buffer
- * This extracts readable ASCII text from PDF without using external libraries
- */
-function extractTextFromBuffer(buffer: Buffer): string {
-  const text: string[] = [];
-  const content = buffer.toString("binary");
-
-  // Look for text streams in PDF
-  const streamRegex = /stream[\r\n]+([\s\S]*?)[\r\n]+endstream/g;
-  let match;
-
-  while ((match = streamRegex.exec(content)) !== null) {
-    const streamContent = match[1];
-    // Extract readable text (letters, numbers, spaces, punctuation)
-    const readable = streamContent
-      .replace(/[^\x20-\x7E\r\n]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-
-    if (readable.length > 10) {
-      text.push(readable);
-    }
-  }
-
-  // Also look for text objects (Tj, TJ operators)
-  const textRegex = /\(([^)]+)\)\s*Tj/g;
-  while ((match = textRegex.exec(content)) !== null) {
-    const readable = match[1]
-      .replace(/[^\x20-\x7E]/g, "")
-      .trim();
-    if (readable.length > 0) {
-      text.push(readable);
-    }
-  }
-
-  // Look for array text objects
-  const arrayTextRegex = /\[((?:\([^)]*\)[^)]*)+)\]\s*TJ/gi;
-  while ((match = arrayTextRegex.exec(content)) !== null) {
-    const parts = match[1].match(/\(([^)]*)\)/g);
-    if (parts) {
-      const readable = parts
-        .map(p => p.slice(1, -1))
-        .join("")
-        .replace(/[^\x20-\x7E]/g, "")
-        .trim();
-      if (readable.length > 0) {
-        text.push(readable);
-      }
-    }
-  }
-
-  return text.join(" ").replace(/\s+/g, " ").trim();
 }
