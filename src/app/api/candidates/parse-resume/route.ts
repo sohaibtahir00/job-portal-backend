@@ -3,19 +3,13 @@ import { requireAnyRole } from "@/lib/auth";
 import { UserRole } from "@prisma/client";
 import OpenAI from "openai";
 
-// Force Node.js runtime for PDF parsing
+// Force Node.js runtime
 export const runtime = "nodejs";
 
 // Maximum file size: 5MB
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
-// Extract text from PDF using unpdf (lightweight, no native dependencies)
-async function extractTextFromPDF(buffer: Buffer): Promise<string> {
-  const { extractText } = await import("unpdf");
-  const result = await extractText(buffer);
-  return result.text;
-}
-
+// Extract text from DOCX using mammoth (lightweight, works in Node.js)
 async function extractTextFromDOCX(buffer: Buffer): Promise<string> {
   const mammoth = await import("mammoth");
   const result = await mammoth.extractRawText({ buffer });
@@ -71,37 +65,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Extract text from the file
-    let resumeText = "";
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    try {
-      if (isPDF) {
-        resumeText = await extractTextFromPDF(buffer);
-      } else if (isDOCX) {
-        resumeText = await extractTextFromDOCX(buffer);
-      }
-    } catch (extractError) {
-      console.error("Text extraction error:", extractError);
-      return NextResponse.json(
-        { error: "Couldn't read your resume. Please try a different file or fill in manually." },
-        { status: 400 }
-      );
-    }
-
-    // Validate that we got some text
-    if (!resumeText || resumeText.trim().length < 50) {
-      return NextResponse.json(
-        { error: "Couldn't extract enough text from your resume. Please try a different file or fill in manually." },
-        { status: 400 }
-      );
-    }
-
     // Initialize OpenAI
     const openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
+
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
     // Parse resume using GPT-4
     try {
@@ -149,26 +119,77 @@ Important parsing rules:
 - Keep descriptions brief and professional.
 - If graduation year is "Expected YYYY" or "Present", use that year.
 - For GPA, only include if explicitly mentioned.
-- Return null for any field that cannot be determined from the resume.
+- Return null for any field that cannot be determined from the resume.`;
 
-Resume text:
-${resumeText.substring(0, 12000)}`;
+      let completion;
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4-turbo-preview",
-        messages: [
-          {
-            role: "system",
-            content: "You are a professional resume parser. Extract structured data from resume text accurately. Return only valid JSON, no explanations."
-          },
-          {
-            role: "user",
-            content: parsePrompt
-          }
-        ],
-        temperature: 0.2,
-        response_format: { type: "json_object" }
-      });
+      if (isPDF) {
+        // For PDFs, use GPT-4 Vision with base64 encoded file
+        const base64File = buffer.toString("base64");
+
+        completion = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: "You are a professional resume parser. Extract structured data from resume documents accurately. Return only valid JSON, no explanations."
+            },
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: parsePrompt
+                },
+                {
+                  type: "file",
+                  file: {
+                    filename: file.name,
+                    file_data: `data:application/pdf;base64,${base64File}`
+                  }
+                } as any
+              ]
+            }
+          ],
+          temperature: 0.2,
+          response_format: { type: "json_object" }
+        });
+      } else {
+        // For DOCX, extract text first then send to GPT-4
+        let resumeText = "";
+        try {
+          resumeText = await extractTextFromDOCX(buffer);
+        } catch (extractError) {
+          console.error("Text extraction error:", extractError);
+          return NextResponse.json(
+            { error: "Couldn't read your resume. Please try a different file or fill in manually." },
+            { status: 400 }
+          );
+        }
+
+        if (!resumeText || resumeText.trim().length < 50) {
+          return NextResponse.json(
+            { error: "Couldn't extract enough text from your resume. Please try a different file or fill in manually." },
+            { status: 400 }
+          );
+        }
+
+        completion = await openai.chat.completions.create({
+          model: "gpt-4-turbo-preview",
+          messages: [
+            {
+              role: "system",
+              content: "You are a professional resume parser. Extract structured data from resume text accurately. Return only valid JSON, no explanations."
+            },
+            {
+              role: "user",
+              content: `${parsePrompt}\n\nResume text:\n${resumeText.substring(0, 12000)}`
+            }
+          ],
+          temperature: 0.2,
+          response_format: { type: "json_object" }
+        });
+      }
 
       const parsedData = JSON.parse(completion.choices[0].message.content || "{}");
 
