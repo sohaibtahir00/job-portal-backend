@@ -92,42 +92,47 @@ export async function POST(request: NextRequest) {
         {
           role: "system",
           content: `You are a resume parser. Extract structured data from the resume text.
-Return a JSON object with these fields (use empty string or empty array if not found):
+Return a JSON object with these exact fields (use null for missing string values, empty array for missing arrays):
 
 {
-  "fullName": "string",
-  "email": "string",
-  "phone": "string",
-  "location": "string",
-  "linkedinUrl": "string",
-  "githubUrl": "string",
-  "portfolioUrl": "string",
-  "headline": "string - professional title/headline",
-  "summary": "string - professional summary",
-  "yearsOfExperience": number,
-  "skills": ["array of skill names"],
+  "name": "Full name",
+  "phone": "Phone number or null",
+  "location": "City, State/Country or null",
+  "bio": "Professional summary/objective or null",
+  "currentRole": "Most recent job title or null",
+  "experience": number (years of experience, calculate from work history),
+  "skills": ["skill1", "skill2", ...],
+  "linkedIn": "LinkedIn URL or null",
+  "github": "GitHub URL or null",
+  "personalWebsite": "Personal website URL or null",
+  "portfolio": "Portfolio URL or null",
+  "workExperience": [
+    {
+      "companyName": "Company name",
+      "jobTitle": "Job title",
+      "startDate": "YYYY-MM-DD format",
+      "endDate": "YYYY-MM-DD format or null if current",
+      "isCurrent": true/false,
+      "description": "Job description or null",
+      "location": "Work location or null"
+    }
+  ],
   "education": [
     {
-      "institution": "string",
-      "degree": "string",
-      "field": "string",
-      "graduationYear": "string"
+      "schoolName": "School/University name",
+      "degree": "Degree type (e.g., Bachelor of Science)",
+      "fieldOfStudy": "Major/Field of study",
+      "graduationYear": number (YYYY format),
+      "gpa": number or null
     }
-  ],
-  "experience": [
-    {
-      "company": "string",
-      "title": "string",
-      "startDate": "string",
-      "endDate": "string or Present",
-      "description": "string"
-    }
-  ],
-  "certifications": ["array of certification names"],
-  "languages": ["array of languages"]
+  ]
 }
 
-Return only valid JSON, no explanations or markdown.`
+Important:
+- For experience (years), calculate based on work history dates
+- For workExperience dates, use YYYY-MM-DD format
+- Set isCurrent to true if the job has no end date or says "Present"
+- Return only valid JSON, no explanations or markdown`
         },
         {
           role: "user",
