@@ -82,9 +82,10 @@ Return a JSON object with these exact fields (use null for missing string values
 }
 
 Important:
-- For experience (years), calculate based on work history dates
-- For workExperience dates, use YYYY-MM-DD format
+- For experience (years): Calculate TOTAL years from the EARLIEST job start date to TODAY (${new Date().getFullYear()}). If someone started working in 2020 and it's now 2025, that's 5 years experience regardless of job changes. Round to nearest whole number.
+- For workExperience dates, use YYYY-MM-DD format. If only year is provided, use YYYY-01-01 for start dates and YYYY-12-31 for end dates.
 - Set isCurrent to true if the job has no end date or says "Present"
+- For education graduationYear: Always return a 4-digit year number (e.g., 2020), never null
 - Return only valid JSON, no explanations or markdown`
         },
         {
