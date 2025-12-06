@@ -133,11 +133,12 @@ model User {
   name          String
   role          UserRole   @default(CANDIDATE)
   status        UserStatus @default(ACTIVE)
-  isActive      Boolean    @default(true)
-  emailVerified DateTime?
-  image         String?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  isActive            Boolean    @default(true)
+  emailVerified       DateTime?
+  image               String?
+  onboardingCompleted Boolean    @default(false)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
 
   // Settings
   emailNotifications      Boolean @default(true)

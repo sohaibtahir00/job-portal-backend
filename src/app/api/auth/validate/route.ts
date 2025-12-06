@@ -68,6 +68,7 @@ export async function POST(request: NextRequest) {
       image: user.image,
       role: user.role,
       status: user.status,
+      onboardingCompleted: user.onboardingCompleted,
     });
   } catch (error) {
     console.error("Validation error:", error);

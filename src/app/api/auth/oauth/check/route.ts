@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
         role: true,
         status: true,
         image: true,
+        onboardingCompleted: true,
       },
     });
 
@@ -51,6 +52,7 @@ export async function POST(request: NextRequest) {
           name: user.name,
           role: user.role,
           image: user.image,
+          onboardingCompleted: user.onboardingCompleted,
         },
       });
     }
