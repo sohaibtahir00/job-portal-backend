@@ -83,7 +83,7 @@ Return a JSON object with these exact fields (use null for missing string values
 
 Important:
 - For experience (years): Calculate TOTAL years from the EARLIEST job start date to TODAY (${new Date().toISOString().split('T')[0]}). Subtract the earliest start year from the current year. Example: If earliest job started Dec 2019 and today is Dec 2025, that's 2025 - 2019 = 6 years. Round to nearest whole number.
-- For workExperience dates, use YYYY-MM-DD format. If only year is provided, use YYYY-01-01 for start dates and YYYY-12-31 for end dates.
+- For workExperience dates, use YYYY-MM-DD format. IMPORTANT: Preserve the exact month from the resume. If resume says "Dec 2019" or "December 2019", use 2019-12-01. If resume says "Jan 2020", use 2020-01-01. If only year is provided, use YYYY-01-01 for start dates.
 - Set isCurrent to true if the job has no end date or says "Present"
 - For education graduationYear: Always return a 4-digit year number (e.g., 2020), never null
 - Return only valid JSON, no explanations or markdown`
