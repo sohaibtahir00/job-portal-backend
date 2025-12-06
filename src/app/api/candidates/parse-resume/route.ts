@@ -107,6 +107,32 @@ Important:
 
     const parsedData = JSON.parse(content);
 
+    // Calculate experience ourselves from workExperience dates (don't trust GPT's calculation)
+    let calculatedExperience = parsedData.experience || 0;
+    if (parsedData.workExperience && parsedData.workExperience.length > 0) {
+      // Find the earliest start date
+      let earliestStartDate: Date | null = null;
+      for (const job of parsedData.workExperience) {
+        if (job.startDate) {
+          const startDate = new Date(job.startDate);
+          if (!earliestStartDate || startDate < earliestStartDate) {
+            earliestStartDate = startDate;
+          }
+        }
+      }
+
+      if (earliestStartDate) {
+        const today = new Date();
+        const yearsDiff = today.getFullYear() - earliestStartDate.getFullYear();
+        calculatedExperience = Math.round(yearsDiff);
+        console.log("[RESUME PARSER] Earliest job start:", earliestStartDate.toISOString());
+        console.log("[RESUME PARSER] Calculated experience:", calculatedExperience, "years (overriding GPT's:", parsedData.experience, ")");
+      }
+    }
+
+    // Override GPT's experience with our calculation
+    parsedData.experience = calculatedExperience;
+
     return NextResponse.json({
       success: true,
       data: parsedData
