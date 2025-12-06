@@ -108,14 +108,21 @@ Return a JSON object with these exact fields (use null for any field you cannot 
   "industry": "Primary industry (e.g., Technology, Healthcare, Finance, E-commerce, SaaS, AI/ML, Cybersecurity, etc.)",
   "location": "Headquarters location (City, State/Country format) or null",
   "companySize": "Estimated company size. Use one of: 1-10, 11-50, 51-200, 201-500, 501-1000, 1000+ or null if unknown",
+  "phone": "Company phone number in international format or null",
   "logo": "URL to company logo image if found in the page, or null"
 }
 
+Tips for finding each field:
+- companyName: Use the official name, not marketing taglines
+- description: Summarize what the company does in plain language
+- location: Look in footer, Contact page content, About section, "Headquarters" or "HQ" mentions, address blocks
+- companySize: Look for employee count on About/Careers page, "team of X", "X employees", or estimate from context (e.g., enterprise = 1000+, startup = 1-50)
+- phone: Look in footer, Contact section, Support section, or tel: links. Format with country code if possible
+- logo: Look for og:image meta tag, logo in header, or favicon - provide full URL if found
+
 Important:
-- Only extract information you are confident about
-- For companyName, use the official name, not marketing taglines
-- For description, summarize what the company does in plain language
-- For logo, look for og:image meta tag, logo in header, or favicon - provide full URL if found
+- Try hard to find location, companySize, and phone - these are commonly in footers or contact sections
+- If you see an address, extract the city/state/country for location
 - Return only valid JSON, no explanations or markdown`
         },
         {
@@ -151,6 +158,7 @@ ${websiteContent.substring(0, 10000)}`
         industry: typeof parsedData.industry === "string" ? parsedData.industry.trim() : null,
         location: typeof parsedData.location === "string" ? parsedData.location.trim() : null,
         companySize: typeof parsedData.companySize === "string" ? parsedData.companySize.trim() : null,
+        phone: typeof parsedData.phone === "string" ? parsedData.phone.trim() : null,
         logo: typeof parsedData.logo === "string" && parsedData.logo.startsWith("http") ? parsedData.logo : null,
       };
 
