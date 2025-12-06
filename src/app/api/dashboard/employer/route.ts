@@ -329,8 +329,12 @@ export async function GET(request: NextRequest) {
         email: employer.user.email,
         companyName: employer.companyName,
         companyLogo: employer.companyLogo,
+        companyWebsite: employer.companyWebsite,
+        companySize: employer.companySize,
         location: employer.location,
         industry: employer.industry,
+        description: employer.description,
+        phone: employer.phone,
         verified: employer.verified,
         // Include full jobs array for /employer/jobs page
         jobs: employer.jobs.map((job) => ({
