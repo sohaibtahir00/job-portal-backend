@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { hashPassword, validateEmail, validatePassword } from "@/lib/auth";
 import { UserRole } from "@prisma/client";
 import { sendEmailVerificationEmail } from "@/lib/email";
+import { isWorkEmail, getEmailDomain, getWorkEmailErrorMessage } from "@/lib/email-utils";
 import crypto from "crypto";
 
 export async function POST(request: NextRequest) {
@@ -40,6 +41,14 @@ export async function POST(request: NextRequest) {
     if (!Object.values(UserRole).includes(userRole)) {
       return NextResponse.json(
         { error: "Invalid role specified" },
+        { status: 400 }
+      );
+    }
+
+    // Validate work email for employers
+    if (userRole === UserRole.EMPLOYER && !isWorkEmail(email)) {
+      return NextResponse.json(
+        { error: getWorkEmailErrorMessage() },
         { status: 400 }
       );
     }
@@ -87,12 +96,14 @@ export async function POST(request: NextRequest) {
         },
       });
     } else if (userRole === UserRole.EMPLOYER) {
-      // For employer registration, you might want to require company name
-      // This is a basic example
+      // Extract company domain from work email for verification purposes
+      const companyDomain = getEmailDomain(email);
+
       await prisma.employer.create({
         data: {
           userId: user.id,
-          companyName: name, // You may want to accept this separately
+          companyName: name,
+          companyDomain: companyDomain || null,
           verified: false,
         },
       });
