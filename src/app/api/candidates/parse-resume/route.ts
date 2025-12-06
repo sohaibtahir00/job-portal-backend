@@ -110,13 +110,21 @@ Important:
     // Calculate experience ourselves from workExperience dates (don't trust GPT's calculation)
     let calculatedExperience = parsedData.experience || 0;
     if (parsedData.workExperience && parsedData.workExperience.length > 0) {
+      // Log all work experience for debugging
+      console.log("[RESUME PARSER] All work experience entries:");
+      for (const job of parsedData.workExperience) {
+        console.log(`  - ${job.companyName}: ${job.startDate} to ${job.endDate || 'Present'}`);
+      }
+
       // Find the earliest start date
       let earliestStartDate: Date | null = null;
+      let earliestDateString: string | null = null;
       for (const job of parsedData.workExperience) {
         if (job.startDate) {
           const startDate = new Date(job.startDate);
           if (!earliestStartDate || startDate < earliestStartDate) {
             earliestStartDate = startDate;
+            earliestDateString = job.startDate;
           }
         }
       }
@@ -125,8 +133,11 @@ Important:
         const today = new Date();
         const yearsDiff = today.getFullYear() - earliestStartDate.getFullYear();
         calculatedExperience = Math.round(yearsDiff);
-        console.log("[RESUME PARSER] Earliest job start:", earliestStartDate.toISOString());
-        console.log("[RESUME PARSER] Calculated experience:", calculatedExperience, "years (overriding GPT's:", parsedData.experience, ")");
+        console.log("[RESUME PARSER] Earliest job start (raw):", earliestDateString);
+        console.log("[RESUME PARSER] Earliest job start (parsed):", earliestStartDate.toISOString());
+        console.log("[RESUME PARSER] Today:", today.toISOString());
+        console.log("[RESUME PARSER] Calculated:", today.getFullYear(), "-", earliestStartDate.getFullYear(), "=", calculatedExperience, "years");
+        console.log("[RESUME PARSER] GPT calculated:", parsedData.experience, "years");
       }
     }
 
