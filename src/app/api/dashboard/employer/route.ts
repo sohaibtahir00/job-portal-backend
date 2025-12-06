@@ -99,6 +99,22 @@ export async function GET(request: NextRequest) {
             createdAt: "desc",
           },
         },
+        teamMembers: {
+          select: {
+            id: true,
+          },
+        },
+        videoIntegration: {
+          select: {
+            platform: true,
+            email: true,
+          },
+        },
+        googleCalendar: {
+          select: {
+            email: true,
+          },
+        },
       },
     });
 
@@ -336,6 +352,11 @@ export async function GET(request: NextRequest) {
         description: employer.description,
         phone: employer.phone,
         verified: employer.verified,
+        // Integration status for dashboard banner checks
+        teamMembersCount: employer.teamMembers.length,
+        videoConferencingConnected: !!employer.videoIntegration,
+        videoConferencingPlatform: employer.videoIntegration?.platform || null,
+        googleCalendarConnected: !!employer.googleCalendar,
         // Include full jobs array for /employer/jobs page
         jobs: employer.jobs.map((job) => ({
           id: job.id,
