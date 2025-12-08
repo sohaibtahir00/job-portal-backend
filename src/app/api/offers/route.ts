@@ -204,7 +204,11 @@ export async function POST(request: NextRequest) {
     const hasCompletedInterview = application.interviews.some((i) => i.status === "COMPLETED");
     const validStatuses = ["INTERVIEWED", "SHORTLISTED", "INTERVIEW_SCHEDULED"];
 
-    if (!validStatuses.includes(application.status) && !hasCompletedInterview) {
+    // Also allow re-offering for REJECTED applications if it was due to offer decline
+    // (will be cleared when new offer is created)
+    const isRejectableForReoffer = application.status === "REJECTED" || application.status === "OFFERED";
+
+    if (!validStatuses.includes(application.status) && !hasCompletedInterview && !isRejectableForReoffer) {
       return NextResponse.json(
         {
           error: `Cannot make offer for application with status: ${application.status}. Application must be SHORTLISTED, have a completed interview, or be in interview process.`,
@@ -218,11 +222,25 @@ export async function POST(request: NextRequest) {
       where: { applicationId },
     });
 
+    // Allow new offers if previous was declined, withdrawn, or expired
+    // For these cases, delete the old offer and create a new one
     if (existingOffer) {
-      return NextResponse.json(
-        { error: "An offer already exists for this application" },
-        { status: 400 }
-      );
+      const allowNewOfferStatuses = ["DECLINED", "WITHDRAWN", "EXPIRED"];
+
+      if (!allowNewOfferStatuses.includes(existingOffer.status)) {
+        return NextResponse.json(
+          { error: "An active offer already exists for this application" },
+          { status: 400 }
+        );
+      }
+
+      // Delete the old offer to allow creating a new one
+      // (Application has unique constraint on applicationId)
+      await prisma.offer.delete({
+        where: { id: existingOffer.id },
+      });
+
+      console.log(`[Offers] Deleted previous ${existingOffer.status} offer ${existingOffer.id} to allow new offer`);
     }
 
     // Create the offer
@@ -263,10 +281,16 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Update application status to OFFERED
+    // Update application status to OFFERED and clear any rejection fields (for re-offers)
     await prisma.application.update({
       where: { id: applicationId },
-      data: { status: ApplicationStatus.OFFERED },
+      data: {
+        status: ApplicationStatus.OFFERED,
+        // Clear rejection fields if this is a re-offer after decline
+        rejectionReason: null,
+        rejectedAt: null,
+        rejectedBy: null,
+      },
     });
 
     // Send email notification to candidate

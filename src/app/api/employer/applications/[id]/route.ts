@@ -71,7 +71,7 @@ export async function GET(
 
     console.log('✅ [EMPLOYER/APPLICATION] Employer found:', employer.companyName, 'ID:', employer.id);
 
-    // Fetch application with full details
+    // Fetch application with full details including offer
     const application = await prisma.application.findUnique({
       where: { id: applicationId },
       include: {
@@ -107,6 +107,19 @@ export async function GET(
         testResults: {
           orderBy: {
             completedAt: "desc",
+          },
+        },
+        // Include offer data for button state management
+        offer: {
+          select: {
+            id: true,
+            status: true,
+            position: true,
+            salary: true,
+            createdAt: true,
+            expiresAt: true,
+            respondedAt: true,
+            declineReason: true,
           },
         },
       },

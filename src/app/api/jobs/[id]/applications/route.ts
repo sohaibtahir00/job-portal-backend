@@ -105,7 +105,7 @@ export async function GET(
 
     console.log('✅ [JOBS/APPLICATIONS] Ownership verified! Fetching applications...');
 
-    // Fetch applications for this job
+    // Fetch applications for this job including offer data
     const applications = await prisma.application.findMany({
       where: { jobId: jobId },
       include: {
@@ -118,6 +118,14 @@ export async function GET(
                 email: true,
               },
             },
+          },
+        },
+        // Include offer data for proper status display
+        offer: {
+          select: {
+            id: true,
+            status: true,
+            createdAt: true,
           },
         },
       },
@@ -152,6 +160,11 @@ export async function GET(
         testScore: app.candidate.testScore,
         testTier: app.candidate.testTier,
       },
+      // Include offer data for proper status display
+      offer: app.offer ? {
+        id: app.offer.id,
+        status: app.offer.status,
+      } : null,
     }));
 
     return NextResponse.json({
