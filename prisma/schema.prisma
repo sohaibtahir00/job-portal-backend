@@ -132,6 +132,19 @@ enum ClaimStatus {
   RELEASED    // Released back to pool (admin stopped working on it)
 }
 
+enum ApprovalStatus {
+  PENDING     // Awaiting admin approval
+  APPROVED    // Approved by admin
+  REJECTED    // Rejected by admin
+}
+
+enum VerificationStatus {
+  UNVERIFIED  // Not yet verified
+  PENDING     // Verification in progress
+  VERIFIED    // Verified by admin
+  REJECTED    // Verification rejected
+}
+
 // Models
 model User {
   id            String     @id @default(cuid())
@@ -225,6 +238,12 @@ model Candidate {
   referredBy       String? // Email of referrer (if referred by someone)
   referralEarnings Int     @default(0) // Total earnings from referrals in cents
 
+  // Admin verification fields
+  verificationStatus  VerificationStatus @default(UNVERIFIED)
+  verifiedAt          DateTime?
+  verifiedBy          String? // Admin user ID who verified
+  verificationNotes   String?   @db.Text
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -247,6 +266,7 @@ model Candidate {
   @@index([testInviteToken])
   @@index([referralCode])
   @@index([referredBy])
+  @@index([verificationStatus])
 }
 
 model Employer {
@@ -264,6 +284,13 @@ model Employer {
   verified         Boolean @default(false)
   stripeCustomerId String? @unique // Stripe customer ID
   totalSpent       Int     @default(0) // Total amount spent on placements in cents
+
+  // Admin approval workflow
+  approvalStatus    ApprovalStatus @default(APPROVED) // Default APPROVED to not break existing employers
+  approvedAt        DateTime?
+  approvedBy        String? // Admin user ID who approved
+  rejectionReason   String?   @db.Text
+  rejectedAt        DateTime?
 
   // Job claiming tracking
   claimedJobsCount Int       @default(0)
@@ -292,6 +319,7 @@ model Employer {
   @@index([stripeCustomerId])
   @@index([companyDomain])
   @@index([slug])
+  @@index([approvalStatus])
 }
 
 model Job {
