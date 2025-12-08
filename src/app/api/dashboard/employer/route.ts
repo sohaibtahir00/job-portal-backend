@@ -357,6 +357,7 @@ export async function GET(request: NextRequest) {
         videoConferencingConnected: !!employer.videoIntegration,
         videoConferencingPlatform: employer.videoIntegration?.platform || null,
         googleCalendarConnected: !!employer.googleCalendar,
+        stripeCustomerId: employer.stripeCustomerId,
         // Include full jobs array for /employer/jobs page
         jobs: employer.jobs.map((job) => ({
           id: job.id,
