@@ -125,6 +125,13 @@ enum BlogPostStatus {
   ARCHIVED
 }
 
+enum ClaimStatus {
+  UNCLAIMED   // Not claimed by admin
+  CLAIMED     // Actively being worked on by admin
+  CONVERTED   // Successfully converted to placement
+  RELEASED    // Released back to pool (admin stopped working on it)
+}
+
 // Models
 model User {
   id            String     @id @default(cuid())
@@ -380,6 +387,12 @@ model Application {
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 
+  // Admin claiming fields - for tracking candidates admin is working on
+  claimedAt       DateTime? // When the application was claimed by admin
+  claimedBy       String? // Admin user ID who claimed this application
+  claimStatus     ClaimStatus @default(UNCLAIMED)
+  claimNotes      String?     @db.Text // Admin notes about the claimed candidate
+
   // Relations
   job         Job          @relation(fields: [jobId], references: [id], onDelete: Cascade)
   candidate   Candidate    @relation(fields: [candidateId], references: [id], onDelete: Cascade)
@@ -393,6 +406,8 @@ model Application {
   @@index([status])
   @@index([appliedAt])
   @@index([rejectedBy])
+  @@index([claimStatus])
+  @@index([claimedBy])
 }
 
 model TestResult {
