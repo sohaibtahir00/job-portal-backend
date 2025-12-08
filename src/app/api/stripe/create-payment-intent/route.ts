@@ -49,15 +49,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if employer has a Stripe customer ID
-    if (!employer.stripeCustomerId) {
-      return NextResponse.json(
-        {
-          error: "No Stripe customer found. Please create a customer first.",
-          action: "Call POST /api/stripe/create-customer first",
+    // Auto-create Stripe customer if not exists
+    let stripeCustomerId = employer.stripeCustomerId;
+
+    if (!stripeCustomerId) {
+      console.log(`Auto-creating Stripe customer for employer ${employer.id}`);
+
+      const customer = await stripe.customers.create({
+        email: user.email,
+        name: employer.companyName,
+        metadata: {
+          employerId: employer.id,
+          userId: user.id,
+          companyName: employer.companyName,
+          autoCreated: "true",
         },
-        { status: 400 }
-      );
+      });
+
+      // Save to database
+      await prisma.employer.update({
+        where: { id: employer.id },
+        data: { stripeCustomerId: customer.id },
+      });
+
+      stripeCustomerId = customer.id;
+      console.log(`Stripe customer created: ${customer.id}`);
     }
 
     const body = await request.json();
@@ -262,7 +278,7 @@ export async function POST(request: NextRequest) {
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amountToCharge,
       currency: STRIPE_CONFIG.currency,
-      customer: employer.stripeCustomerId,
+      customer: stripeCustomerId,
       metadata: {
         placementId: placement.id,
         candidateId: placement.candidateId,
