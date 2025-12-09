@@ -5,6 +5,7 @@ import { isTokenExpired } from "@/lib/tokens";
 import {
   sendIntroductionAcceptedEmail,
   sendIntroductionDeclinedEmail,
+  sendAdminIntroductionQuestionsAlert,
   EMAIL_CONFIG,
 } from "@/lib/email";
 
@@ -314,12 +315,25 @@ export async function POST(
         `[Introduction Response] Candidate ${introduction.candidate.user.name} DECLINED introduction to ${introduction.employer.companyName}`
       );
     } else if (response === CandidateResponse.QUESTIONS) {
-      // For questions, we could send a different notification
-      // For now, log it and the admin/support can handle it
+      // Send notification to admin about candidate questions
+      const adminEmailResult = await sendAdminIntroductionQuestionsAlert({
+        candidateName: introduction.candidate.user.name,
+        candidateEmail: introduction.candidate.user.email,
+        employerCompanyName: introduction.employer.companyName,
+        jobTitle,
+        questions: message,
+        introductionId: introduction.id,
+      });
+
+      if (!adminEmailResult.success) {
+        console.error(
+          `[Introduction Response] Failed to send admin alert: ${adminEmailResult.error}`
+        );
+      }
+
       console.log(
         `[Introduction Response] Candidate ${introduction.candidate.user.name} has QUESTIONS for ${introduction.employer.companyName}: ${message}`
       );
-      // TODO: Consider implementing a notification to admin or employer about questions
     }
 
     // Return success response

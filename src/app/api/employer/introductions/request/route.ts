@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { UserRole, IntroductionStatus } from "@prisma/client";
+import { UserRole, IntroductionStatus, CandidateResponse } from "@prisma/client";
+import { generateIntroductionToken, generateTokenExpiry } from "@/lib/tokens";
+import { sendIntroductionRequestEmail } from "@/lib/email";
 
 // Protection period duration in months
 const PROTECTION_PERIOD_MONTHS = 12;
@@ -117,13 +119,33 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Generate response token for secure email link
+    const responseToken = generateIntroductionToken();
+    const responseTokenExpiry = generateTokenExpiry(7); // 7 days
+
     if (introduction) {
+      // Check if already has a pending request
+      if (introduction.status === IntroductionStatus.INTRO_REQUESTED &&
+          introduction.candidateResponse === CandidateResponse.PENDING) {
+        return NextResponse.json(
+          {
+            error: "Introduction already requested",
+            message: "An introduction request is already pending for this candidate.",
+          },
+          { status: 400 }
+        );
+      }
+
       // Update existing record
       introduction = await prisma.candidateIntroduction.update({
         where: { id: introduction.id },
         data: {
           introRequestedAt: now,
           status: IntroductionStatus.INTRO_REQUESTED,
+          candidateResponse: CandidateResponse.PENDING,
+          responseToken,
+          responseTokenExpiry,
+          candidateMessage: null, // Clear any previous message
           // Update jobId if provided and different
           ...(jobId && jobId !== introduction.jobId ? { jobId } : {}),
         },
@@ -142,14 +164,37 @@ export async function POST(request: NextRequest) {
           protectionEndsAt: protectionEndDate,
           profileViews: 1,
           status: IntroductionStatus.INTRO_REQUESTED,
+          candidateResponse: CandidateResponse.PENDING,
+          responseToken,
+          responseTokenExpiry,
         },
       });
       console.log('✅ [INTRODUCTIONS/REQUEST] Created new introduction with INTRO_REQUESTED status');
     }
 
-    // TODO: Trigger notification to candidate about introduction request
-    // This will be implemented in a future update
-    // await notifyCandidate(candidate.user.email, employer.companyName, message);
+    // Get job details for email
+    const job = jobId ? await prisma.job.findUnique({
+      where: { id: jobId },
+      select: { title: true },
+    }) : null;
+
+    // Send email to candidate with response link
+    const emailResult = await sendIntroductionRequestEmail({
+      candidateEmail: candidate.user.email,
+      candidateName: candidate.user.name,
+      employerCompanyName: employer.companyName,
+      employerDescription: employer.description || undefined,
+      jobTitle: job?.title || "Open Position",
+      responseToken,
+    });
+
+    if (!emailResult.success) {
+      console.error('⚠️ [INTRODUCTIONS/REQUEST] Failed to send email:', emailResult.error);
+      // Don't fail the request, just log the error
+      // The introduction is still recorded and admin can resend if needed
+    } else {
+      console.log('📧 [INTRODUCTIONS/REQUEST] Email sent to candidate:', candidate.user.email);
+    }
 
     console.log('✅ [INTRODUCTIONS/REQUEST] Introduction requested for candidate:', candidate.user.name);
 
@@ -158,6 +203,10 @@ export async function POST(request: NextRequest) {
       introductionId: introduction.id,
       status: introduction.status,
       protectionEndsAt: introduction.protectionEndsAt,
+      emailSent: emailResult.success,
+      message: emailResult.success
+        ? "Introduction request sent. The candidate will be notified via email."
+        : "Introduction request recorded but email delivery failed. Please contact support.",
     });
 
   } catch (error) {

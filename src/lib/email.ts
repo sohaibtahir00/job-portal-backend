@@ -1190,6 +1190,91 @@ export async function sendIntroductionDeclinedEmail(data: {
   });
 }
 
+/**
+ * Admin notification when candidate has questions about introduction
+ * Sent to admin email when candidate selects "I Have Questions"
+ */
+export async function sendAdminIntroductionQuestionsAlert(data: {
+  candidateName: string;
+  candidateEmail: string;
+  employerCompanyName: string;
+  jobTitle: string;
+  questions: string;
+  introductionId: string;
+}): Promise<{ success: boolean; error?: string; data?: any }> {
+  const adminEmail = process.env.ADMIN_EMAIL || "admin@getskillproof.com";
+  const adminDashboardUrl = `${EMAIL_CONFIG.appUrl}/admin/introductions/${data.introductionId}`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #7C3AED; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+          .info-card { background: white; padding: 20px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #7C3AED; }
+          .questions-box { background: #F3F4F6; padding: 20px; border-radius: 6px; margin: 20px 0; border: 1px solid #E5E7EB; }
+          .questions-box blockquote { margin: 0; font-style: italic; color: #374151; white-space: pre-wrap; }
+          .button { display: inline-block; background: #7C3AED; color: white; padding: 14px 30px; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: bold; }
+          .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 14px; }
+          .alert-icon { font-size: 48px; text-align: center; margin: 20px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Candidate Has Questions</h1>
+          </div>
+          <div class="content">
+            <div class="alert-icon">❓</div>
+
+            <p><strong>${data.candidateName}</strong> has questions before accepting an introduction to <strong>${data.employerCompanyName}</strong>.</p>
+
+            <div class="info-card">
+              <h3 style="margin-top: 0; color: #7C3AED;">Introduction Details</h3>
+              <p><strong>Candidate:</strong> ${data.candidateName}</p>
+              <p><strong>Email:</strong> <a href="mailto:${data.candidateEmail}" style="color: #7C3AED;">${data.candidateEmail}</a></p>
+              <p><strong>Employer:</strong> ${data.employerCompanyName}</p>
+              <p><strong>Position:</strong> ${data.jobTitle}</p>
+            </div>
+
+            <div class="questions-box">
+              <h3 style="margin-top: 0;">Their Questions:</h3>
+              <blockquote>"${data.questions}"</blockquote>
+            </div>
+
+            <div style="text-align: center;">
+              <a href="${adminDashboardUrl}" class="button">View in Admin Dashboard</a>
+            </div>
+
+            <p><strong>Suggested actions:</strong></p>
+            <ul>
+              <li>Respond to candidate directly via email</li>
+              <li>Relay questions to employer if appropriate</li>
+              <li>Update the introduction status in the admin dashboard</li>
+            </ul>
+
+            <p>The candidate's contact information has NOT been shared with the employer yet.</p>
+          </div>
+          <div class="footer">
+            <p>This is an automated alert from SkillProof.</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to: adminEmail,
+    subject: `Candidate has questions about introduction - ${data.candidateName}`,
+    html,
+    text: `${data.candidateName} has questions before accepting introduction to ${data.employerCompanyName} for ${data.jobTitle}. Their questions: "${data.questions}". View in admin dashboard: ${adminDashboardUrl}`,
+  });
+}
+
 export default {
   sendCandidateWelcomeEmail,
   sendEmployerWelcomeEmail,
@@ -1204,4 +1289,5 @@ export default {
   sendIntroductionRequestEmail,
   sendIntroductionAcceptedEmail,
   sendIntroductionDeclinedEmail,
+  sendAdminIntroductionQuestionsAlert,
 };
