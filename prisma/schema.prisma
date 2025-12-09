@@ -145,6 +145,25 @@ enum VerificationStatus {
   REJECTED    // Verification rejected
 }
 
+enum CandidateResponse {
+  PENDING
+  ACCEPTED
+  DECLINED
+  QUESTIONS
+}
+
+enum IntroductionStatus {
+  PROFILE_VIEWED
+  INTRO_REQUESTED
+  CANDIDATE_DECLINED
+  INTRODUCED
+  INTERVIEWING
+  OFFER_EXTENDED
+  HIRED
+  CLOSED_NO_HIRE
+  EXPIRED
+}
+
 // Models
 model User {
   id            String     @id @default(cuid())
@@ -258,6 +277,7 @@ model Candidate {
   skillsAssessments SkillsAssessment[]
   profileViews      ProfileView[]
   receivedOffers    Offer[]            @relation("CandidateOffers")
+  introductions     CandidateIntroduction[]
 
   @@index([userId])
   @@index([availability])
@@ -312,6 +332,9 @@ model Employer {
   interviewTemplates  InterviewTemplate[]          // Custom interview templates
   googleCalendar      GoogleCalendarIntegration?   // Google Calendar integration
   interviewReviews    InterviewReview[]
+  serviceAgreement         ServiceAgreement?
+  jobClaimAcknowledgments  JobClaimAcknowledgment[]
+  candidateIntroductions   CandidateIntroduction[]
 
   @@index([userId])
   @@index([verified])
@@ -386,6 +409,8 @@ model Job {
   profileViews    ProfileView[]
   offers          Offer[]          @relation("JobOffers")
   interviewRounds InterviewRound[]
+  claimAcknowledgments JobClaimAcknowledgment[]
+  introductions        CandidateIntroduction[]
 
   @@index([employerId])
   @@index([status])
@@ -1195,4 +1220,85 @@ model GoogleCalendarIntegration {
 
   @@index([employerId])
   @@map("google_calendar_integrations")
+}
+
+// Fee Protection System Models
+
+// Stores signed employer service agreements
+model ServiceAgreement {
+  id                String   @id @default(cuid())
+  employerId        String   @unique
+
+  signedAt          DateTime
+  signerName        String
+  signerTitle       String
+  signerEmail       String
+  ipAddress         String
+  agreementVersion  String   // "v1.0"
+  agreementText     String   @db.Text
+
+  createdAt         DateTime @default(now())
+
+  // Relations
+  employer          Employer @relation(fields: [employerId], references: [id], onDelete: Cascade)
+
+  @@index([employerId])
+  @@index([signedAt])
+}
+
+// Tracks per-job acknowledgments after initial agreement
+model JobClaimAcknowledgment {
+  id                String   @id @default(cuid())
+  employerId        String
+  jobId             String
+
+  acknowledgedAt    DateTime
+
+  createdAt         DateTime @default(now())
+
+  // Relations
+  employer          Employer @relation(fields: [employerId], references: [id], onDelete: Cascade)
+  job               Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([employerId, jobId])
+  @@index([employerId])
+  @@index([jobId])
+}
+
+// Core tracking table for all employer-candidate interactions
+model CandidateIntroduction {
+  id                   String              @id @default(cuid())
+
+  employerId           String
+  candidateId          String
+  jobId                String?
+
+  profileViewedAt      DateTime
+  introRequestedAt     DateTime?
+  candidateRespondedAt DateTime?
+  candidateResponse    CandidateResponse?
+  introducedAt         DateTime?
+
+  protectionStartsAt   DateTime
+  protectionEndsAt     DateTime
+
+  profileViews         Int @default(1)
+  resumeDownloads      Int @default(0)
+
+  status               IntroductionStatus @default(PROFILE_VIEWED)
+
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  // Relations
+  employer             Employer  @relation(fields: [employerId], references: [id], onDelete: Cascade)
+  candidate            Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  job                  Job?      @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+  @@unique([employerId, candidateId])
+  @@index([employerId])
+  @@index([candidateId])
+  @@index([jobId])
+  @@index([status])
+  @@index([protectionEndsAt])
 }
