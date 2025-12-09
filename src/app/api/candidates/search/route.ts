@@ -2,11 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, requireAnyRole } from "@/lib/auth";
 import { UserRole, JobType } from "@prisma/client";
+import { getGatedName, GatedCandidatePreview } from "@/lib/candidate-access";
 
 /**
  * GET /api/candidates/search
  * Advanced candidate search with multiple filters
  * Employer-only endpoint for finding qualified candidates
+ *
+ * IMPORTANT: This endpoint returns GATED preview data only.
+ * Sensitive contact information is NEVER included in search results.
+ * Employers must view individual candidate profiles after signing agreement.
  *
  * Query parameters:
  * - q: string (search query for name, bio, education)
@@ -30,6 +35,7 @@ import { UserRole, JobType } from "@prisma/client";
  *
  * Returns:
  * - Paginated candidate listings with cursor-based pagination
+ * - GATED data: firstName + lastInitial only, NO contact info
  * - Skill match scores
  * - Test tier information
  * - Total count and filter statistics
@@ -37,7 +43,7 @@ import { UserRole, JobType } from "@prisma/client";
  * Authentication: Required (EMPLOYER or ADMIN role)
  */
 export async function GET(request: NextRequest) {
-  console.log('🔍 [CANDIDATES/SEARCH] GET request received! v2');
+  console.log('🔍 [CANDIDATES/SEARCH] GET request received! v3 - GATED');
   console.log('🔍 [CANDIDATES/SEARCH] Required roles: EMPLOYER, ADMIN');
 
   try {
@@ -217,22 +223,25 @@ export async function GET(request: NextRequest) {
     console.log('📊 [CANDIDATES/SEARCH] OrderBy:', JSON.stringify(orderBy, null, 2));
 
     // Fetch candidates with cursor-based pagination
+    // NOTE: We only select fields needed for gated preview - NO contact info
     const candidates = await prisma.candidate.findMany({
       where,
-      include: {
+      select: {
+        id: true,
+        currentRole: true,
+        location: true,
+        experience: true,
+        skills: true,
+        availability: true,
+        hasTakenTest: true,
+        testScore: true,
+        testPercentile: true,
+        testTier: true,
+        createdAt: true,
         user: {
           select: {
-            id: true,
             name: true,
-            email: true,
-            image: true,
-            status: true,
-          },
-        },
-        _count: {
-          select: {
-            applications: true,
-            placements: true,
+            // NOTE: Explicitly NOT selecting email, image
           },
         },
       },
@@ -245,24 +254,17 @@ export async function GET(request: NextRequest) {
     });
 
     console.log('✅ [CANDIDATES/SEARCH] Found', candidates.length, 'candidates');
-    console.log('👥 [CANDIDATES/SEARCH] Candidate details:', candidates.map(c => ({
-      id: c.id,
-      name: c.user.name || c.user.email,
-      email: c.user.email,
-      status: c.user.status,
-      hasTakenTest: c.hasTakenTest,
-      testScore: c.testScore,
-      skills: c.skills,
-      location: c.location,
-    })));
 
     // Determine if there are more results
     const hasMore = candidates.length > limit;
     const results = hasMore ? candidates.slice(0, limit) : candidates;
     const nextCursor = hasMore ? results[results.length - 1].id : null;
 
-    // Format results
-    const formattedCandidates = results.map((candidate) => {
+    // Format results with GATED data - NO contact info
+    const formattedCandidates: GatedCandidatePreview[] = results.map((candidate) => {
+      // Parse name into first name and last initial
+      const { firstName, lastInitial } = getGatedName(candidate.user.name);
+
       // Calculate skill match score
       let skillMatchScore = 0;
       let matchingSkills: string[] = [];
@@ -277,43 +279,25 @@ export async function GET(request: NextRequest) {
 
       return {
         id: candidate.id,
-        user: {
-          id: candidate.user.id,
-          name: candidate.user.name,
-          email: candidate.user.email,
-          image: candidate.user.image,
-          status: candidate.user.status,
-        },
-        phone: candidate.phone,
-        resume: candidate.resume,
-        portfolio: candidate.portfolio,
-        linkedIn: candidate.linkedIn,
-        github: candidate.github,
-        bio: candidate.bio,
-        skills: candidate.skills,
-        experience: candidate.experience,
-        education: candidate.education,
+        firstName,
+        lastInitial,
+        profileImage: null, // Hidden until agreement signed
         location: candidate.location,
-        preferredJobType: candidate.preferredJobType,
-        expectedSalary: candidate.expectedSalary,
+        yearsExperience: candidate.experience,
+        currentTitle: candidate.currentRole,
+        skills: candidate.skills,
+        skillsScore: candidate.testScore,
+        skillsTier: candidate.testTier,
+        skillsPercentile: candidate.testPercentile,
         availability: candidate.availability,
-        // Test information
-        hasTakenTest: candidate.hasTakenTest,
-        testScore: candidate.testScore,
-        testPercentile: candidate.testPercentile,
-        testTier: candidate.testTier,
-        lastTestDate: candidate.lastTestDate,
-        // Statistics
-        applicationsCount: candidate._count.applications,
-        placementsCount: candidate._count.placements,
-        // Match scores
+        createdAt: candidate.createdAt,
+        // Include match info if searching by skills
         ...(skills.length > 0 || skillsAll.length > 0
           ? {
               matchingSkills,
               skillMatchScore,
             }
           : {}),
-        createdAt: candidate.createdAt,
       };
     });
 
@@ -366,9 +350,9 @@ export async function GET(request: NextRequest) {
     // Calculate experience and test score statistics
     const experienceStats = await prisma.candidate.aggregate({
       where,
-      _min: { experience: true, testScore: true, testPercentile: true, expectedSalary: true },
-      _max: { experience: true, testScore: true, testPercentile: true, expectedSalary: true },
-      _avg: { experience: true, testScore: true, testPercentile: true, expectedSalary: true },
+      _min: { experience: true, testScore: true, testPercentile: true },
+      _max: { experience: true, testScore: true, testPercentile: true },
+      _avg: { experience: true, testScore: true, testPercentile: true },
     });
 
     // Get top skills across all matching candidates
@@ -413,8 +397,6 @@ export async function GET(request: NextRequest) {
           testScoreMax,
           testPercentileMin,
           hasTakenTest: hasTakenTestParam,
-          expectedSalaryMin,
-          expectedSalaryMax,
           sortBy,
         },
         statistics: {
@@ -440,13 +422,6 @@ export async function GET(request: NextRequest) {
               ? Math.round(experienceStats._avg.testPercentile * 10) / 10
               : null,
           },
-          expectedSalaryRange: {
-            min: experienceStats._min.expectedSalary,
-            max: experienceStats._max.expectedSalary,
-            avg: experienceStats._avg.expectedSalary
-              ? Math.round(experienceStats._avg.expectedSalary)
-              : null,
-          },
           topSkills,
         },
       },
@@ -454,6 +429,8 @@ export async function GET(request: NextRequest) {
         timestamp: new Date().toISOString(),
         resultsCount: formattedCandidates.length,
         totalMatches: totalCount,
+        _dataGated: true, // Indicate this is gated data
+        _note: "Contact information requires service agreement and introduction. View individual profiles for more details.",
       },
     });
   } catch (error) {
