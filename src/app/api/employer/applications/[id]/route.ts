@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { UserRole } from "@prisma/client";
+import { UserRole, IntroductionStatus } from "@prisma/client";
+import {
+  getEmployerAccessLevel,
+  CandidateAccessLevel,
+} from "@/lib/candidate-access";
 
 /**
  * GET /api/employer/applications/[id]
@@ -150,7 +154,59 @@ export async function GET(
 
     console.log('✅ [EMPLOYER/APPLICATION] Ownership verified! Returning application data...');
 
-    return NextResponse.json({ application });
+    // Check access level for this employer and candidate
+    const candidateId = application.candidate.id;
+    const accessInfo = await getEmployerAccessLevel(employer.id, candidateId);
+    const accessLevel = accessInfo.accessLevel;
+    const introductionStatus = accessInfo.introductionStatus;
+    const introductionId = accessInfo.introductionId;
+    const protectionEndsAt = accessInfo.protectionEndsAt;
+
+    console.log('🔒 [EMPLOYER/APPLICATION] Access level:', accessLevel, 'Intro status:', introductionStatus);
+
+    // Determine if contact info should be visible
+    const canViewContactInfo = accessLevel === "FULL_ACCESS";
+
+    // Get intro request date if exists
+    let introRequestedAt = null;
+    if (introductionId) {
+      const intro = await prisma.candidateIntroduction.findUnique({
+        where: { id: introductionId },
+        select: { introRequestedAt: true },
+      });
+      if (intro?.introRequestedAt) {
+        introRequestedAt = intro.introRequestedAt;
+      }
+    }
+
+    // Build response with contact info gating
+    const gatedApplication = {
+      ...application,
+      candidate: {
+        ...application.candidate,
+        // Gate contact info fields
+        phone: canViewContactInfo ? application.candidate.phone : null,
+        linkedIn: canViewContactInfo ? application.candidate.linkedIn : null,
+        github: canViewContactInfo ? application.candidate.github : null,
+        portfolio: canViewContactInfo ? application.candidate.portfolio : null,
+        personalWebsite: canViewContactInfo ? application.candidate.personalWebsite : null,
+        resume: canViewContactInfo ? application.candidate.resume : null,
+        // Gate email in user object
+        user: {
+          ...application.candidate.user,
+          email: canViewContactInfo ? application.candidate.user.email : null,
+        },
+        // Add gating metadata to candidate object
+        _accessLevel: accessLevel,
+        _introductionStatus: introductionStatus,
+        _introductionId: introductionId,
+        _protectionEndsAt: protectionEndsAt,
+        _introRequestedAt: introRequestedAt,
+        _contactGated: !canViewContactInfo,
+      },
+    };
+
+    return NextResponse.json({ application: gatedApplication });
   } catch (error) {
     console.error('[EMPLOYER/APPLICATION] Error:', error);
     return NextResponse.json(

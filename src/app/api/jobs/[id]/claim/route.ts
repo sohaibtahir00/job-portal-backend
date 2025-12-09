@@ -9,7 +9,10 @@ import { UserRole, JobStatus } from "@prisma/client";
  * This endpoint allows employers to claim job postings that were aggregated from external sources
  * and associate them with their employer profile
  *
- * Requires EMPLOYER role
+ * Requires:
+ * - EMPLOYER role
+ * - Signed service agreement
+ * - Per-job acknowledgment checkbox
  */
 export async function POST(
   request: NextRequest,
@@ -28,15 +31,30 @@ export async function POST(
       );
     }
 
-    // Get employer profile
+    // Get employer profile with service agreement
     const employer = await prisma.employer.findUnique({
       where: { userId: user.id },
+      include: {
+        serviceAgreement: true,
+      },
     });
 
     if (!employer) {
       return NextResponse.json(
         { error: "Employer profile not found. Please complete your profile first." },
         { status: 404 }
+      );
+    }
+
+    // Check if employer has signed the service agreement
+    if (!employer.serviceAgreement) {
+      return NextResponse.json(
+        {
+          error: "Service agreement required",
+          message: "You must sign the SkillProof Service Agreement before claiming jobs.",
+          redirectTo: "/employer/agreement",
+        },
+        { status: 403 }
       );
     }
 
@@ -84,6 +102,7 @@ export async function POST(
       salaryMax,
       startDateNeeded,
       candidatesNeeded,
+      acknowledgment,
     } = body;
 
     // Validate required fields
@@ -92,6 +111,17 @@ export async function POST(
         {
           error: "Missing required fields",
           message: "Phone number and role level are required to claim this job.",
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validate acknowledgment
+    if (!acknowledgment) {
+      return NextResponse.json(
+        {
+          error: "Acknowledgment required",
+          message: "You must acknowledge that candidates applying to this job are covered under your Service Agreement.",
         },
         { status: 400 }
       );
@@ -140,18 +170,23 @@ export async function POST(
       },
     });
 
-    // Store claim metadata (phone, candidates needed) in a separate table or as JSON
-    // For now, we'll return it in the response
+    // Create job claim acknowledgment record
+    await prisma.jobClaimAcknowledgment.create({
+      data: {
+        employerId: employer.id,
+        jobId: id,
+        acknowledgedAt: new Date(),
+      },
+    });
+
+    // Store claim metadata
     const claimMetadata = {
       phone,
       candidatesNeeded: candidatesNeeded || 10,
       claimedBy: employer.id,
       claimedAt: new Date(),
+      acknowledgmentRecorded: true,
     };
-
-    // Create a notification or audit log entry
-    // In a production system, you'd want to track this action
-    // TODO: Implement audit logging for job claims
 
     // Get skills-verified applicants count
     const applications = await prisma.application.findMany({

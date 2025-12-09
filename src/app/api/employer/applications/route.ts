@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { UserRole, ApplicationStatus } from "@prisma/client";
+import { getGatedName } from "@/lib/candidate-access";
 
 /**
  * GET /api/employer/applications
@@ -229,11 +230,15 @@ export async function GET(request: NextRequest) {
     console.log('📊 [EMPLOYER/APPLICATIONS] Stats:', stats);
 
     // Transform data to match frontend expectations
+    // List view uses masked names (firstName + lastInitial)
     const transformedApplications = applications.map(app => {
       // Get current job title and company from most recent work experience
       const mostRecentWork = app.candidate.workExperiences?.[0];
       const currentTitle = mostRecentWork?.isCurrent ? mostRecentWork.jobTitle : null;
       const currentCompany = mostRecentWork?.isCurrent ? mostRecentWork.companyName : null;
+
+      // Get masked name for list view (firstName + lastInitial)
+      const { firstName, lastInitial } = getGatedName(app.candidate.user.name);
 
       return {
         id: app.id,
@@ -264,8 +269,13 @@ export async function GET(request: NextRequest) {
           resume: app.candidate.resume,
           user: {
             id: app.candidate.user.id,
-            name: app.candidate.user.name || '',
-            email: app.candidate.user.email,
+            // Masked name for list view
+            firstName,
+            lastInitial,
+            // Full name hidden in list view
+            name: `${firstName} ${lastInitial}`.trim(),
+            // Email hidden in list view
+            email: null,
             image: app.candidate.user.image,
           },
         },
