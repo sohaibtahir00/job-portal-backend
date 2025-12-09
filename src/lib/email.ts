@@ -1275,6 +1275,168 @@ export async function sendAdminIntroductionQuestionsAlert(data: {
   });
 }
 
+/**
+ * Check-in email to candidate
+ * Sent periodically (30, 60, 90, 180, 365 days) after introduction to detect potential circumvention
+ */
+export async function sendCheckInEmail(data: {
+  candidateEmail: string;
+  candidateName: string;
+  employerCompanyName: string;
+  jobTitle: string;
+  checkInNumber: number; // 1=30d, 2=60d, 3=90d, 4=180d, 5=365d
+  responseToken: string;
+  introductionDate: Date;
+}): Promise<{ success: boolean; error?: string; data?: any }> {
+  const firstName = data.candidateName.split(" ")[0];
+  const baseUrl = `${EMAIL_CONFIG.appUrl}/check-in/respond/${data.responseToken}`;
+
+  // Create status links with query params
+  const statusLinks = {
+    interviewing: `${baseUrl}?status=interviewing`,
+    offer: `${baseUrl}?status=offer`,
+    hired_there: `${baseUrl}?status=hired_there`,
+    hired_elsewhere: `${baseUrl}?status=hired_elsewhere`,
+    rejected: `${baseUrl}?status=rejected`,
+    withdrew: `${baseUrl}?status=withdrew`,
+    no_response: `${baseUrl}?status=no_response`,
+    still_looking: `${baseUrl}?status=still_looking`,
+  };
+
+  // Calculate days since introduction
+  const daysSinceIntro = Math.floor(
+    (Date.now() - data.introductionDate.getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  // Different email content based on check-in number
+  const checkInMessages: Record<number, { subject: string; greeting: string; mainQuestion: string }> = {
+    1: {
+      subject: `Quick check-in: How's it going with ${data.employerCompanyName}?`,
+      greeting: `It's been about a month since we connected you with ${data.employerCompanyName}. We wanted to check in!`,
+      mainQuestion: "Have you had a chance to interview with them?",
+    },
+    2: {
+      subject: `Following up: Any updates on ${data.employerCompanyName}?`,
+      greeting: `Hope you're doing well! It's been about 2 months since your introduction to ${data.employerCompanyName}.`,
+      mainQuestion: "How has the process been going?",
+    },
+    3: {
+      subject: `90-day check-in: ${data.employerCompanyName} opportunity`,
+      greeting: `Just checking in - it's been about 3 months since we connected you with ${data.employerCompanyName}.`,
+      mainQuestion: "What's the current status of this opportunity?",
+    },
+    4: {
+      subject: `6-month update request: ${data.employerCompanyName}`,
+      greeting: `It's been about 6 months since your introduction to ${data.employerCompanyName}. We'd love a quick update!`,
+      mainQuestion: "Where did things land with this opportunity?",
+    },
+    5: {
+      subject: `Annual check-in: ${data.employerCompanyName} connection`,
+      greeting: `Time flies! It's been a year since we connected you with ${data.employerCompanyName}.`,
+      mainQuestion: "We'd love to know how things worked out.",
+    },
+  };
+
+  const message = checkInMessages[data.checkInNumber] || checkInMessages[1];
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #4F46E5; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+          .status-section { background: white; padding: 20px; border-radius: 6px; margin: 20px 0; }
+          .status-grid { display: grid; gap: 10px; margin: 20px 0; }
+          .status-btn { display: block; padding: 14px 20px; text-align: center; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 5px 0; }
+          .status-positive { background: #059669; color: white; }
+          .status-interview { background: #3B82F6; color: white; }
+          .status-neutral { background: #6B7280; color: white; }
+          .status-negative { background: #EF4444; color: white; }
+          .status-outline { background: white; color: #4F46E5; border: 2px solid #4F46E5; }
+          .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 14px; }
+          .note { background: #FEF3C7; border: 1px solid #F59E0B; padding: 15px; border-radius: 6px; margin: 20px 0; font-size: 14px; }
+          .subtitle { color: #6B7280; font-size: 14px; margin-top: 5px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Quick Update Request</h1>
+            <p class="subtitle">Re: ${data.jobTitle} at ${data.employerCompanyName}</p>
+          </div>
+          <div class="content">
+            <p>Hi ${firstName},</p>
+
+            <p>${message.greeting}</p>
+
+            <p><strong>${message.mainQuestion}</strong></p>
+
+            <div class="status-section">
+              <p style="margin-top: 0; font-weight: bold;">Just click the option that best describes your situation:</p>
+
+              <a href="${statusLinks.interviewing}" class="status-btn status-interview">
+                📅 I'm in the interview process
+              </a>
+
+              <a href="${statusLinks.offer}" class="status-btn status-positive">
+                🎉 I received an offer
+              </a>
+
+              <a href="${statusLinks.hired_there}" class="status-btn status-positive">
+                ✅ I got hired there!
+              </a>
+
+              <a href="${statusLinks.hired_elsewhere}" class="status-btn status-neutral">
+                🔄 I found a job elsewhere
+              </a>
+
+              <a href="${statusLinks.rejected}" class="status-btn status-negative">
+                ❌ They didn't move forward with me
+              </a>
+
+              <a href="${statusLinks.withdrew}" class="status-btn status-neutral">
+                🚫 I withdrew from consideration
+              </a>
+
+              <a href="${statusLinks.no_response}" class="status-btn status-neutral">
+                📭 Never heard back from them
+              </a>
+
+              <a href="${statusLinks.still_looking}" class="status-btn status-outline">
+                🔍 Still looking / Waiting to hear back
+              </a>
+            </div>
+
+            <div class="note">
+              <strong>Why are we asking?</strong><br>
+              As your career partner, we like to follow up on introductions we facilitate. Your feedback helps us improve and ensure employers are responsive.
+            </div>
+
+            <p>Thanks for taking a moment to update us!</p>
+
+            <p>Best,<br>The SkillProof Team</p>
+          </div>
+          <div class="footer">
+            <p>You're receiving this because we introduced you to ${data.employerCompanyName} on ${data.introductionDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.</p>
+            <p>&copy; ${new Date().getFullYear()} SkillProof. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to: data.candidateEmail,
+    subject: message.subject,
+    html,
+    text: `Hi ${firstName}, ${message.greeting} ${message.mainQuestion} Please visit ${baseUrl} to let us know the current status. Thanks! - The SkillProof Team`,
+  });
+}
+
 export default {
   sendCandidateWelcomeEmail,
   sendEmployerWelcomeEmail,
@@ -1290,4 +1452,5 @@ export default {
   sendIntroductionAcceptedEmail,
   sendIntroductionDeclinedEmail,
   sendAdminIntroductionQuestionsAlert,
+  sendCheckInEmail,
 };
