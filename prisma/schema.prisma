@@ -1292,6 +1292,11 @@ model CandidateIntroduction {
   responseTokenExpiry  DateTime?
   candidateMessage     String?   @db.Text
 
+  // Admin management fields
+  adminNotes           String?   @db.Text
+  lastEmailSentAt      DateTime?
+  emailResendCount     Int       @default(0)
+
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 

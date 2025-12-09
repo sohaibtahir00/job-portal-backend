@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { IntroductionStatus, CandidateResponse } from "@prisma/client";
+import { sendIntroductionRequestEmail } from "@/lib/email";
+import { generateIntroductionToken, generateTokenExpiry } from "@/lib/tokens";
 
 /**
  * GET /api/admin/introductions/[id]
@@ -39,7 +41,7 @@ export async function GET(
           select: {
             id: true,
             companyName: true,
-            logo: true,
+            companyLogo: true,
             user: {
               select: {
                 id: true,
@@ -114,6 +116,15 @@ export async function GET(
       });
     }
 
+    // Add email sent event to timeline if available
+    if (introduction.lastEmailSentAt) {
+      timeline.push({
+        date: introduction.lastEmailSentAt,
+        event: `Email ${introduction.emailResendCount > 0 ? "resent" : "sent"} to candidate`,
+        type: "system",
+      });
+    }
+
     // Sort timeline by date
     timeline.sort((a, b) => a.date.getTime() - b.date.getTime());
 
@@ -123,6 +134,7 @@ export async function GET(
         id: introduction.id,
         status: introduction.status,
         candidateResponse: introduction.candidateResponse,
+        candidateMessage: introduction.candidateMessage,
         profileViewedAt: introduction.profileViewedAt,
         introRequestedAt: introduction.introRequestedAt,
         candidateRespondedAt: introduction.candidateRespondedAt,
@@ -131,6 +143,10 @@ export async function GET(
         protectionEndsAt: introduction.protectionEndsAt,
         profileViews: introduction.profileViews,
         resumeDownloads: introduction.resumeDownloads,
+        adminNotes: introduction.adminNotes,
+        lastEmailSentAt: introduction.lastEmailSentAt,
+        emailResendCount: introduction.emailResendCount,
+        responseTokenExpiry: introduction.responseTokenExpiry,
         createdAt: introduction.createdAt,
         updatedAt: introduction.updatedAt,
         candidate: {
@@ -138,6 +154,7 @@ export async function GET(
           name: introduction.candidate.user.name,
           email: introduction.candidate.user.email,
           image: introduction.candidate.user.image,
+          phone: introduction.candidate.phone,
           userId: introduction.candidate.user.id,
           location: introduction.candidate.location,
           currentRole: introduction.candidate.currentRole,
@@ -145,7 +162,7 @@ export async function GET(
         employer: {
           id: introduction.employer.id,
           companyName: introduction.employer.companyName,
-          logo: introduction.employer.logo,
+          logo: introduction.employer.companyLogo,
           contactName: introduction.employer.user.name,
           contactEmail: introduction.employer.user.email,
           userId: introduction.employer.user.id,
@@ -177,7 +194,7 @@ export async function GET(
 
 /**
  * PATCH /api/admin/introductions/[id]
- * Update an introduction (status, notes)
+ * Update an introduction (status, notes, candidateResponse)
  */
 export async function PATCH(
   request: NextRequest,
@@ -192,7 +209,7 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await request.json();
-    const { status, notes } = body;
+    const { status, note, candidateResponse, resetToRequested } = body;
 
     // Validate introduction exists
     const introduction = await prisma.candidateIntroduction.findUnique({
@@ -208,14 +225,43 @@ export async function PATCH(
 
     // Build update data
     const updateData: any = {};
+    const now = new Date();
 
+    // Handle status update
     if (status && Object.values(IntroductionStatus).includes(status)) {
       updateData.status = status;
 
       // Set additional timestamps based on status change
       if (status === IntroductionStatus.INTRODUCED && !introduction.introducedAt) {
-        updateData.introducedAt = new Date();
+        updateData.introducedAt = now;
       }
+    }
+
+    // Handle candidateResponse update
+    if (candidateResponse && Object.values(CandidateResponse).includes(candidateResponse)) {
+      updateData.candidateResponse = candidateResponse;
+      if (!introduction.candidateRespondedAt) {
+        updateData.candidateRespondedAt = now;
+      }
+    }
+
+    // Handle "Mark as Answered" - reset QUESTIONS back to INTRO_REQUESTED
+    if (resetToRequested) {
+      updateData.status = IntroductionStatus.INTRO_REQUESTED;
+      updateData.candidateResponse = CandidateResponse.PENDING;
+      updateData.candidateMessage = null;
+      // Regenerate token for new response
+      updateData.responseToken = generateIntroductionToken();
+      updateData.responseTokenExpiry = generateTokenExpiry(7);
+    }
+
+    // Handle admin note
+    if (note) {
+      const timestamp = now.toISOString();
+      const noteEntry = `[${timestamp}] ${note}`;
+      updateData.adminNotes = introduction.adminNotes
+        ? `${introduction.adminNotes}\n${noteEntry}`
+        : noteEntry;
     }
 
     // Update introduction
@@ -229,6 +275,7 @@ export async function PATCH(
               select: {
                 id: true,
                 name: true,
+                email: true,
               },
             },
           },
@@ -237,13 +284,41 @@ export async function PATCH(
           select: {
             id: true,
             companyName: true,
+            description: true,
+          },
+        },
+        job: {
+          select: {
+            title: true,
           },
         },
       },
     });
 
+    // If resetToRequested, resend email to candidate
+    if (resetToRequested && updateData.responseToken) {
+      const jobTitle = updatedIntroduction.job?.title || "Open Position";
+      await sendIntroductionRequestEmail({
+        candidateEmail: updatedIntroduction.candidate.user.email,
+        candidateName: updatedIntroduction.candidate.user.name,
+        employerCompanyName: updatedIntroduction.employer.companyName,
+        employerDescription: updatedIntroduction.employer.description || undefined,
+        jobTitle,
+        responseToken: updateData.responseToken,
+      });
+
+      // Update last email sent
+      await prisma.candidateIntroduction.update({
+        where: { id },
+        data: {
+          lastEmailSentAt: now,
+          emailResendCount: { increment: 1 },
+        },
+      });
+    }
+
     console.log(
-      `[Admin Introduction] Updated introduction ${id}: status=${status}`
+      `[Admin Introduction] Updated introduction ${id}: status=${updateData.status || "unchanged"}, note=${note ? "added" : "none"}, resetToRequested=${resetToRequested || false}`
     );
 
     return NextResponse.json({
@@ -251,6 +326,8 @@ export async function PATCH(
       introduction: {
         id: updatedIntroduction.id,
         status: updatedIntroduction.status,
+        candidateResponse: updatedIntroduction.candidateResponse,
+        adminNotes: updatedIntroduction.adminNotes,
         candidateName: updatedIntroduction.candidate.user.name,
         employerName: updatedIntroduction.employer.companyName,
       },
