@@ -931,11 +931,13 @@ export async function sendIntroductionRequestEmail(data: {
   employerCompanyName: string;
   employerDescription?: string;
   jobTitle: string;
-  introductionId: string;
+  responseToken: string;
 }): Promise<{ success: boolean; error?: string; data?: any }> {
-  const acceptUrl = `${EMAIL_CONFIG.appUrl}/candidate/introductions/${data.introductionId}/respond?action=accept`;
-  const declineUrl = `${EMAIL_CONFIG.appUrl}/candidate/introductions/${data.introductionId}/respond?action=decline`;
-  const questionsUrl = `${EMAIL_CONFIG.appUrl}/candidate/introductions/${data.introductionId}/respond?action=questions`;
+  // Use token-based URLs for secure response
+  const responseBaseUrl = `${EMAIL_CONFIG.appUrl}/introductions/respond/${data.responseToken}`;
+  const acceptUrl = responseBaseUrl;
+  const declineUrl = responseBaseUrl;
+  const questionsUrl = responseBaseUrl;
 
   // Extract first name for personalization
   const firstName = data.candidateName.split(" ")[0];

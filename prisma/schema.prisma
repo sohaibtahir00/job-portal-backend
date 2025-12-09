@@ -1287,6 +1287,11 @@ model CandidateIntroduction {
 
   status               IntroductionStatus @default(PROFILE_VIEWED)
 
+  // Token-based response fields
+  responseToken        String?   @unique
+  responseTokenExpiry  DateTime?
+  candidateMessage     String?   @db.Text
+
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
@@ -1301,4 +1306,5 @@ model CandidateIntroduction {
   @@index([jobId])
   @@index([status])
   @@index([protectionEndsAt])
+  @@index([responseToken])
 }
