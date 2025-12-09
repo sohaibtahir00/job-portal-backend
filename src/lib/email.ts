@@ -921,6 +921,273 @@ export async function sendEmailVerificationEmail(data: {
   });
 }
 
+/**
+ * Introduction request email to candidate
+ * Sent when an employer requests an introduction to a candidate
+ */
+export async function sendIntroductionRequestEmail(data: {
+  candidateEmail: string;
+  candidateName: string;
+  employerCompanyName: string;
+  employerDescription?: string;
+  jobTitle: string;
+  introductionId: string;
+}): Promise<{ success: boolean; error?: string; data?: any }> {
+  const acceptUrl = `${EMAIL_CONFIG.appUrl}/candidate/introductions/${data.introductionId}/respond?action=accept`;
+  const declineUrl = `${EMAIL_CONFIG.appUrl}/candidate/introductions/${data.introductionId}/respond?action=decline`;
+  const questionsUrl = `${EMAIL_CONFIG.appUrl}/candidate/introductions/${data.introductionId}/respond?action=questions`;
+
+  // Extract first name for personalization
+  const firstName = data.candidateName.split(" ")[0];
+
+  const companyDescription = data.employerDescription || `A company hiring for ${data.jobTitle}`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #4F46E5; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+          .company-card { background: white; padding: 20px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #4F46E5; }
+          .button-primary { display: inline-block; background: #059669; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; margin: 10px 5px 10px 0; font-weight: bold; }
+          .button-secondary { display: inline-block; background: #6B7280; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; margin: 10px 5px 10px 0; font-weight: bold; }
+          .button-outline { display: inline-block; background: white; color: #4F46E5; padding: 12px 26px; text-decoration: none; border-radius: 6px; margin: 10px 5px 10px 0; font-weight: bold; border: 2px solid #4F46E5; }
+          .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 14px; }
+          .steps { background: white; padding: 20px; border-radius: 6px; margin: 20px 0; }
+          .steps ol { margin: 10px 0; padding-left: 20px; }
+          .steps li { margin: 10px 0; }
+          .cta-section { text-align: center; margin: 30px 0; }
+          .expiry-note { background: #FEF3C7; border: 1px solid #F59E0B; padding: 12px; border-radius: 6px; margin: 20px 0; text-align: center; font-size: 14px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>${data.employerCompanyName} is Interested in You!</h1>
+          </div>
+          <div class="content">
+            <p>Hi ${firstName},</p>
+
+            <p>Great news! <strong>${data.employerCompanyName}</strong> has reviewed your profile on SkillProof and would like to connect with you about the <strong>${data.jobTitle}</strong> role.</p>
+
+            <div class="company-card">
+              <h3 style="margin-top: 0; color: #4F46E5;">About ${data.employerCompanyName}</h3>
+              <p style="margin-bottom: 0;">${companyDescription}</p>
+            </div>
+
+            <div class="steps">
+              <h3 style="margin-top: 0;">What happens next:</h3>
+              <ol>
+                <li>If you're interested, we'll share your contact details with them</li>
+                <li>They'll reach out to schedule an interview</li>
+                <li>We'll support you through the entire process</li>
+              </ol>
+            </div>
+
+            <div class="cta-section">
+              <a href="${acceptUrl}" class="button-primary">I'm Interested - Connect Us</a>
+              <a href="${declineUrl}" class="button-secondary">Not Interested</a>
+              <br>
+              <a href="${questionsUrl}" class="button-outline">I Have Questions First</a>
+            </div>
+
+            <div class="expiry-note">
+              ⏰ This opportunity will remain open for <strong>7 days</strong>.
+            </div>
+
+            <p>Best,<br>The SkillProof Team</p>
+          </div>
+          <div class="footer">
+            <p>You're receiving this because you have a profile on SkillProof.</p>
+            <p>&copy; ${new Date().getFullYear()} SkillProof. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to: data.candidateEmail,
+    subject: `${data.employerCompanyName} is interested in connecting with you`,
+    html,
+    text: `Hi ${firstName}, Great news! ${data.employerCompanyName} has reviewed your profile on SkillProof and would like to connect with you about the ${data.jobTitle} role. Visit your dashboard to respond to this introduction request.`,
+  });
+}
+
+/**
+ * Introduction accepted email to employer
+ * Sent when a candidate accepts an introduction request
+ */
+export async function sendIntroductionAcceptedEmail(data: {
+  employerEmail: string;
+  employerName: string;
+  candidateName: string;
+  candidateEmail: string;
+  candidatePhone?: string;
+  candidateLinkedIn?: string;
+  jobTitle: string;
+  candidateProfileUrl: string;
+}): Promise<{ success: boolean; error?: string; data?: any }> {
+  const contactDetails = [];
+  contactDetails.push(`<li><strong>Email:</strong> <a href="mailto:${data.candidateEmail}" style="color: #4F46E5;">${data.candidateEmail}</a></li>`);
+  if (data.candidatePhone) {
+    contactDetails.push(`<li><strong>Phone:</strong> <a href="tel:${data.candidatePhone}" style="color: #4F46E5;">${data.candidatePhone}</a></li>`);
+  }
+  if (data.candidateLinkedIn) {
+    contactDetails.push(`<li><strong>LinkedIn:</strong> <a href="${data.candidateLinkedIn}" style="color: #4F46E5;" target="_blank">${data.candidateLinkedIn}</a></li>`);
+  }
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #059669; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+          .success-icon { font-size: 48px; text-align: center; margin: 20px 0; }
+          .contact-card { background: white; padding: 20px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #059669; }
+          .contact-card ul { list-style: none; padding: 0; margin: 0; }
+          .contact-card li { margin: 10px 0; }
+          .button { display: inline-block; background: #059669; color: white; padding: 14px 30px; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: bold; }
+          .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 14px; }
+          .tips { background: white; padding: 20px; border-radius: 6px; margin: 20px 0; }
+          .tips ol { margin: 10px 0; padding-left: 20px; }
+          .tips li { margin: 8px 0; }
+          .reminder { background: #FEF3C7; border: 1px solid #F59E0B; padding: 15px; border-radius: 6px; margin: 20px 0; font-size: 14px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Great News!</h1>
+          </div>
+          <div class="content">
+            <div class="success-icon">🎉</div>
+
+            <p>Hi ${data.employerName},</p>
+
+            <p>Good news! <strong>${data.candidateName}</strong> is interested in connecting with you about the <strong>${data.jobTitle}</strong> role.</p>
+
+            <p>Their contact information is now available:</p>
+
+            <div style="text-align: center;">
+              <a href="${data.candidateProfileUrl}" class="button">View Candidate Profile</a>
+            </div>
+
+            <div class="contact-card">
+              <h3 style="margin-top: 0; color: #059669;">Candidate Contact Details</h3>
+              <ul>
+                ${contactDetails.join("")}
+              </ul>
+            </div>
+
+            <div class="tips">
+              <h3 style="margin-top: 0;">Suggested next steps:</h3>
+              <ol>
+                <li><strong>Reach out within 48 hours</strong> - candidates respond best to quick follow-up</li>
+                <li>Schedule an initial call to discuss the role</li>
+                <li>Keep us posted on your progress</li>
+              </ol>
+            </div>
+
+            <p>Need help with interview scheduling or have questions? Just reply to this email.</p>
+
+            <div class="reminder">
+              <strong>Reminder:</strong> This candidate is covered under your Service Agreement. If you hire ${data.candidateName}, the applicable placement fee applies.
+            </div>
+
+            <p>Best,<br>The SkillProof Team</p>
+          </div>
+          <div class="footer">
+            <p>&copy; ${new Date().getFullYear()} SkillProof. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to: data.employerEmail,
+    subject: `${data.candidateName} accepted your introduction request`,
+    html,
+    text: `Hi ${data.employerName}, Good news! ${data.candidateName} is interested in connecting with you about the ${data.jobTitle} role. Contact: ${data.candidateEmail}${data.candidatePhone ? `, Phone: ${data.candidatePhone}` : ""}. View their full profile in your dashboard.`,
+  });
+}
+
+/**
+ * Introduction declined email to employer
+ * Sent when a candidate declines an introduction request
+ */
+export async function sendIntroductionDeclinedEmail(data: {
+  employerEmail: string;
+  employerName: string;
+  candidateFirstName: string;
+  jobTitle: string;
+  searchUrl: string;
+}): Promise<{ success: boolean; error?: string; data?: any }> {
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #6B7280; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+          .info-card { background: white; padding: 20px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #6B7280; }
+          .button { display: inline-block; background: #4F46E5; color: white; padding: 14px 30px; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: bold; }
+          .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 14px; }
+          .cta-section { text-align: center; margin: 30px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Update on Your Introduction Request</h1>
+          </div>
+          <div class="content">
+            <p>Hi ${data.employerName},</p>
+
+            <p>Unfortunately, the candidate you requested an introduction to for the <strong>${data.jobTitle}</strong> role is not available at this time.</p>
+
+            <div class="info-card">
+              <p style="margin: 0;">This could mean they've accepted another opportunity, aren't looking for new roles currently, or aren't the right fit for this specific position.</p>
+            </div>
+
+            <p>Don't worry - we have other qualified candidates for your role:</p>
+
+            <div class="cta-section">
+              <a href="${data.searchUrl}" class="button">Browse More Candidates</a>
+            </div>
+
+            <p>Our team is also happy to help you find the perfect match. Just reply to this email if you'd like personalized recommendations.</p>
+
+            <p>Best,<br>The SkillProof Team</p>
+          </div>
+          <div class="footer">
+            <p>&copy; ${new Date().getFullYear()} SkillProof. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to: data.employerEmail,
+    subject: `Update on your introduction request`,
+    html,
+    text: `Hi ${data.employerName}, Unfortunately, the candidate you requested an introduction to for the ${data.jobTitle} role is not available at this time. Browse more candidates at ${data.searchUrl}`,
+  });
+}
+
 export default {
   sendCandidateWelcomeEmail,
   sendEmployerWelcomeEmail,
@@ -932,4 +1199,7 @@ export default {
   sendApplicationStatusUpdateEmail,
   sendPaymentSuccessEmail,
   sendEmailVerificationEmail,
+  sendIntroductionRequestEmail,
+  sendIntroductionAcceptedEmail,
+  sendIntroductionDeclinedEmail,
 };
