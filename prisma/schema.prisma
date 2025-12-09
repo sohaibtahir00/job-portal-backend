@@ -1090,6 +1090,25 @@ enum ResourceType {
   WEBINAR
 }
 
+// Risk Level for Check-in responses
+enum RiskLevel {
+  HIGH    // Likely hired at introduced company without paying
+  MEDIUM  // Unclear, needs follow-up
+  LOW     // Probably no issue
+  CLEAR   // Confirmed no circumvention
+}
+
+// Flag Status for circumvention tracking
+enum FlagStatus {
+  OPEN
+  INVESTIGATING
+  INVOICE_SENT
+  PAID
+  DISPUTED
+  FALSE_POSITIVE
+  WROTE_OFF
+}
+
 // Resources/Downloads
 model Resource {
   id          String       @id @default(cuid())
@@ -1304,6 +1323,8 @@ model CandidateIntroduction {
   employer             Employer  @relation(fields: [employerId], references: [id], onDelete: Cascade)
   candidate            Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
   job                  Job?      @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  checkIns             CandidateCheckIn[]
+  circumventionFlags   CircumventionFlag[]
 
   @@unique([employerId, candidateId])
   @@index([employerId])
@@ -1312,4 +1333,87 @@ model CandidateIntroduction {
   @@index([status])
   @@index([protectionEndsAt])
   @@index([responseToken])
+}
+
+// Candidate Check-In Tracking
+// Used to schedule and track periodic check-ins with candidates
+// to detect potential fee circumvention
+model CandidateCheckIn {
+  id                  String   @id @default(cuid())
+
+  introductionId      String
+  introduction        CandidateIntroduction @relation(fields: [introductionId], references: [id], onDelete: Cascade)
+
+  // Check-in schedule: 1=30 days, 2=60 days, 3=90 days, 4=180 days, 5=365 days
+  checkInNumber       Int
+  scheduledFor        DateTime
+
+  // Sending
+  sentAt              DateTime?
+  responseToken       String?  @unique
+  responseTokenExpiry DateTime?
+
+  // Response
+  respondedAt         DateTime?
+  responseType        String?  // "clicked_button" | "free_text" | "no_response"
+  responseRaw         String?  @db.Text
+  responseParsed      Json?    // OpenAI extracted data
+
+  // Risk assessment
+  riskLevel           RiskLevel?
+  riskReason          String?
+
+  // Review
+  flaggedForReview    Boolean  @default(false)
+  reviewedAt          DateTime?
+  reviewedBy          String?
+  reviewNotes         String?  @db.Text
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([introductionId])
+  @@index([scheduledFor])
+  @@index([sentAt])
+  @@index([responseToken])
+  @@index([riskLevel])
+  @@index([flaggedForReview])
+}
+
+// Circumvention Flag Tracking
+// Used to track potential fee circumvention cases and their resolution
+model CircumventionFlag {
+  id                  String   @id @default(cuid())
+
+  introductionId      String
+  introduction        CandidateIntroduction @relation(fields: [introductionId], references: [id], onDelete: Cascade)
+
+  // Detection
+  detectedAt          DateTime @default(now())
+  detectionMethod     String   // "check_in_response" | "manual" | "linkedin_scan"
+  evidence            String   @db.Text
+
+  // Financial
+  estimatedSalary     Decimal?
+  estimatedFeeOwed    Decimal?
+  feePercentage       Decimal? // 15, 18, or 20
+
+  // Resolution
+  status              FlagStatus @default(OPEN)
+  resolvedAt          DateTime?
+  resolution          String?  // "invoice_sent" | "fee_collected" | "false_positive" | "wrote_off"
+  resolutionNotes     String?  @db.Text
+
+  // Invoice tracking
+  invoiceSentAt       DateTime?
+  invoiceAmount       Decimal?
+  invoicePaidAt       DateTime?
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([introductionId])
+  @@index([status])
+  @@index([detectedAt])
+  @@index([detectionMethod])
 }
