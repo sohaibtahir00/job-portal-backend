@@ -234,14 +234,22 @@ export async function GET(
       },
     };
 
-    // Get intro request date if exists
+    // Get full introduction details if exists
     if (introductionId) {
       const intro = await prisma.candidateIntroduction.findUnique({
         where: { id: introductionId },
-        select: { introRequestedAt: true },
+        select: {
+          introRequestedAt: true,
+          candidateResponse: true,
+          candidateRespondedAt: true,
+          introducedAt: true,
+        },
       });
-      if (intro?.introRequestedAt) {
+      if (intro) {
         response.candidate._introRequestedAt = intro.introRequestedAt;
+        response.candidate._candidateResponse = intro.candidateResponse;
+        response.candidate._candidateRespondedAt = intro.candidateRespondedAt;
+        response.candidate._introducedAt = intro.introducedAt;
       }
     }
 
