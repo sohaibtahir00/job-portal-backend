@@ -50,7 +50,6 @@ export async function GET(request: NextRequest) {
             select: {
               id: true,
               companyName: true,
-              contactName: true,
             },
           },
           job: {
@@ -99,7 +98,6 @@ export async function GET(request: NextRequest) {
         candidateEmail: intro.candidate.user.email,
         employerId: intro.employerId,
         employerCompanyName: intro.employer.companyName,
-        employerContactName: intro.employer.contactName,
         jobId: intro.jobId,
         jobTitle: intro.job?.title || null,
         introducedAt: intro.introducedAt,
