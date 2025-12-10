@@ -25,13 +25,16 @@ export const EMAIL_ADDRESSES = {
 
 /**
  * Email configuration
- * Note: appUrl should point to the FRONTEND URL for email links (not the backend)
+ * Note: appUrl is a getter function to ensure env vars are read at runtime, not build time
  */
 export const EMAIL_CONFIG = {
   from: EMAIL_ADDRESSES.contact,
   replyTo: EMAIL_ADDRESSES.support,
   appName: "SkillProof",
-  appUrl: process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+  // Use getter to ensure FRONTEND_URL is read at runtime, not build time
+  get appUrl() {
+    return process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  },
 };
 
 /**
