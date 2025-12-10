@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
       const response = await fetch(parsedUrl.toString(), {
         signal: controller.signal,
         headers: {
-          "User-Agent": "Mozilla/5.0 (compatible; JobPortalBot/1.0; +https://jobportal.com)",
+          "User-Agent": "Mozilla/5.0 (compatible; SkillProofBot/1.0; +https://getskillproof.com)",
           "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         },
       });

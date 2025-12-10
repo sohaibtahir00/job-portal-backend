@@ -70,7 +70,7 @@ export const authOptions: AuthOptions = {
         // OAuth users (Google) are considered verified by their provider
         // Admin account is exempt from email verification
         const isOAuthUser = user.accounts && user.accounts.length > 0;
-        const isAdminAccount = user.email === "admin@jobportal.com";
+        const isAdminAccount = user.email === "admin@getskillproof.com";
         if (!isOAuthUser && !isAdminAccount && !user.emailVerified) {
           throw new Error("EMAIL_NOT_VERIFIED");
         }

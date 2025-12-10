@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
 
     // Send email to support team
     await sendEmail({
-      to: process.env.SUPPORT_EMAIL || "support@jobportal.com",
+      to: process.env.SUPPORT_EMAIL || "support@getskillproof.com",
       subject: `Contact Form: ${subject}`,
       html: `
         <h2>New Contact Form Submission</h2>

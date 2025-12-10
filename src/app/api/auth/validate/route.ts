@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     // Check email verification for credential-based login
     // Users logging in with email/password must have verified their email
     // Admin account is exempt from email verification
-    const isAdminAccount = user.email === "admin@jobportal.com";
+    const isAdminAccount = user.email === "admin@getskillproof.com";
     if (!isAdminAccount && !user.emailVerified) {
       return NextResponse.json(
         { error: "EMAIL_NOT_VERIFIED" },

@@ -8,23 +8,43 @@ if (!process.env.RESEND_API_KEY) {
 export const resend = new Resend(process.env.RESEND_API_KEY);
 
 /**
+ * Email addresses for different types of communications
+ * - contact: Candidate & employer communications
+ * - admin: Admin alerts and internal notifications
+ * - billing: Invoices and payment emails
+ * - noreply: Automated system emails (verification, password reset)
+ * - support: Reply-to for support inquiries
+ */
+export const EMAIL_ADDRESSES = {
+  contact: 'SkillProof <contact@getskillproof.com>',
+  admin: 'SkillProof <admin@getskillproof.com>',
+  billing: 'SkillProof Billing <billing@getskillproof.com>',
+  noreply: 'SkillProof <noreply@getskillproof.com>',
+  support: 'support@getskillproof.com',
+};
+
+/**
  * Email configuration
  */
 export const EMAIL_CONFIG = {
-  from: process.env.EMAIL_FROM || "Job Portal <noreply@jobportal.com>",
-  replyTo: process.env.EMAIL_REPLY_TO || "support@jobportal.com",
-  appName: "Job Portal",
+  from: EMAIL_ADDRESSES.contact,
+  replyTo: EMAIL_ADDRESSES.support,
+  appName: "SkillProof",
   appUrl: process.env.NEXTAUTH_URL || "http://localhost:3000",
 };
 
 /**
  * Email sending utility with error handling
+ * @param options.from - Optional FROM address (defaults to EMAIL_ADDRESSES.contact)
+ * @param options.replyTo - Optional Reply-To address (defaults to EMAIL_ADDRESSES.support)
  */
 export async function sendEmail(options: {
   to: string | string[];
   subject: string;
   html: string;
   text?: string;
+  from?: string;
+  replyTo?: string;
   attachments?: Array<{
     filename: string;
     content: string | Buffer;
@@ -37,7 +57,8 @@ export async function sendEmail(options: {
 
   try {
     const result = await resend.emails.send({
-      from: EMAIL_CONFIG.from,
+      from: options.from || EMAIL_ADDRESSES.contact,
+      replyTo: options.replyTo || EMAIL_ADDRESSES.support,
       to: options.to,
       subject: options.subject,
       html: options.html,
@@ -654,6 +675,8 @@ export async function sendPaymentReminderEmail(data: {
       : `Payment Reminder - ${formattedAmount} Due ${data.daysUntilDue === 0 ? "Today" : `in ${data.daysUntilDue} Days`}`,
     html,
     text: `Reminder: Remaining placement fee of ${formattedAmount} is due ${isOverdue ? `${Math.abs(data.daysUntilDue)} days ago` : data.daysUntilDue === 0 ? "today" : `in ${data.daysUntilDue} days`}.`,
+    from: EMAIL_ADDRESSES.billing,
+    replyTo: EMAIL_ADDRESSES.billing.replace('SkillProof Billing <', '').replace('>', ''),
   });
 }
 
@@ -847,6 +870,8 @@ export async function sendPaymentSuccessEmail(data: {
     subject: `Payment Confirmed - ${formattedAmount} ${isFullyPaid ? "(Fully Paid)" : "(50% Upfront)"}`,
     html,
     text: `Your ${data.paymentType} payment of ${formattedAmount} has been processed successfully.`,
+    from: EMAIL_ADDRESSES.billing,
+    replyTo: 'billing@getskillproof.com',
   });
 }
 
@@ -918,6 +943,8 @@ export async function sendEmailVerificationEmail(data: {
     subject: `Verify your ${EMAIL_CONFIG.appName} account`,
     html,
     text: `Hi ${data.name}, Thanks for signing up! Please verify your email by visiting: ${verificationUrl}. This link expires in 24 hours.`,
+    from: EMAIL_ADDRESSES.noreply,
+    replyTo: undefined, // No reply-to for verification emails
   });
 }
 
@@ -1272,6 +1299,8 @@ export async function sendAdminIntroductionQuestionsAlert(data: {
     subject: `Candidate has questions about introduction - ${data.candidateName}`,
     html,
     text: `${data.candidateName} has questions before accepting introduction to ${data.employerCompanyName} for ${data.jobTitle}. Their questions: "${data.questions}". View in admin dashboard: ${adminDashboardUrl}`,
+    from: EMAIL_ADDRESSES.admin,
+    replyTo: 'admin@getskillproof.com',
   });
 }
 

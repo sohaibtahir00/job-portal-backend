@@ -5,8 +5,8 @@ import { requireRole } from "@/lib/auth";
 let platformSettings = {
   platform: {
     name: "SkillProof",
-    url: process.env.NEXTAUTH_URL || "https://skillproof.com",
-    supportEmail: "support@skillproof.com",
+    url: process.env.NEXTAUTH_URL || "https://getskillproof.com",
+    supportEmail: "support@getskillproof.com",
   },
   fees: {
     juniorMid: 15,
@@ -27,7 +27,7 @@ let platformSettings = {
   email: {
     provider: "resend",
     apiKey: process.env.RESEND_API_KEY || "",
-    fromEmail: "noreply@skillproof.com",
+    fromEmail: "noreply@getskillproof.com",
     fromName: "SkillProof",
   },
   payment: {
