@@ -28,6 +28,8 @@ export async function GET(
       );
     }
 
+    console.log(`[Introduction Respond] Looking up token: ${token.substring(0, 10)}...`);
+
     // Find introduction by token
     const introduction = await prisma.candidateIntroduction.findUnique({
       where: { responseToken: token },
@@ -70,6 +72,7 @@ export async function GET(
     });
 
     if (!introduction) {
+      console.log(`[Introduction Respond GET] Token not found in database`);
       return NextResponse.json(
         {
           error: "Invalid or expired link",
@@ -78,6 +81,8 @@ export async function GET(
         { status: 404 }
       );
     }
+
+    console.log(`[Introduction Respond GET] Found introduction ID: ${introduction.id}, status: ${introduction.status}`);
 
     // Check if token is expired
     if (isTokenExpired(introduction.responseTokenExpiry)) {
