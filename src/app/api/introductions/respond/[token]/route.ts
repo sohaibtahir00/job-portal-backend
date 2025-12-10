@@ -38,7 +38,7 @@ export async function GET(
           select: {
             id: true,
             companyName: true,
-            logo: true,
+            companyLogo: true,
             companyWebsite: true,
             industry: true,
             description: true,
@@ -115,7 +115,7 @@ export async function GET(
         requestedAt: introduction.introRequestedAt,
         employer: {
           companyName: introduction.employer.companyName,
-          logo: introduction.employer.logo,
+          logo: introduction.employer.companyLogo,
           website: introduction.employer.companyWebsite,
           industry: introduction.employer.industry,
           description: introduction.employer.description,
