@@ -8,15 +8,15 @@ const AGREEMENT_VERSION = "v1.0";
 
 // Full service agreement text
 const AGREEMENT_TEXT = `
-HIREHUB AI SERVICE AGREEMENT
+SkillProof AI SERVICE AGREEMENT
 
 Effective Date: Upon Electronic Acceptance
 
-This Service Agreement ("Agreement") is entered into between HireHub AI ("Company", "we", "us", "our") and the employer organization ("Employer", "you", "your") identified during registration.
+This Service Agreement ("Agreement") is entered into between SkillProof AI ("Company", "we", "us", "our") and the employer organization ("Employer", "you", "your") identified during registration.
 
 1. SERVICES PROVIDED
 
-1.1 HireHub AI provides a technology-enabled recruitment platform connecting Employers with pre-vetted technology professionals ("Candidates").
+1.1 SkillProof AI provides a technology-enabled recruitment platform connecting Employers with pre-vetted technology professionals ("Candidates").
 
 1.2 Our services include:
 - Access to our curated database of technology professionals
@@ -72,7 +72,7 @@ This Service Agreement ("Agreement") is entered into between HireHub AI ("Compan
 
 5.3 Circumvention: You agree not to circumvent our services by:
 - Contacting Candidates directly after their profiles are removed from our platform
-- Hiring Candidates through another agency who were first introduced by HireHub AI
+- Hiring Candidates through another agency who were first introduced by SkillProof AI
 - Encouraging Candidates to apply directly to avoid fees
 
 6. DATA PRIVACY & CONFIDENTIALITY
@@ -93,7 +93,7 @@ This Service Agreement ("Agreement") is entered into between HireHub AI ("Compan
 
 8. LIMITATION OF LIABILITY
 
-8.1 HireHub AI's total liability shall not exceed the fees paid by you in the 12 months preceding any claim.
+8.1 SkillProof AI's total liability shall not exceed the fees paid by you in the 12 months preceding any claim.
 
 8.2 We are not liable for:
 - Candidate performance or conduct
@@ -129,7 +129,7 @@ Your electronic signature below has the same legal effect as a handwritten signa
  * Returns: { hasSigned: boolean, signedAt?: Date, agreementVersion?: string }
  */
 export async function GET(request: NextRequest) {
-  console.log('📜 [SERVICE-AGREEMENT] GET request received');
+  console.log("📜 [SERVICE-AGREEMENT] GET request received");
 
   try {
     const user = await getCurrentUser();
@@ -178,9 +178,8 @@ export async function GET(request: NextRequest) {
       signedAt: agreement.signedAt,
       agreementVersion: agreement.agreementVersion,
     });
-
   } catch (error) {
-    console.error('❌ [SERVICE-AGREEMENT] Error:', error);
+    console.error("❌ [SERVICE-AGREEMENT] Error:", error);
     return NextResponse.json(
       { error: "Failed to check service agreement status" },
       { status: 500 }
@@ -195,7 +194,7 @@ export async function GET(request: NextRequest) {
  * Returns: { success: true, signedAt: Date }
  */
 export async function POST(request: NextRequest) {
-  console.log('📜 [SERVICE-AGREEMENT] POST request received');
+  console.log("📜 [SERVICE-AGREEMENT] POST request received");
 
   try {
     const user = await getCurrentUser();
@@ -219,14 +218,22 @@ export async function POST(request: NextRequest) {
     const { signerName, signerTitle, agreedToTerms } = body;
 
     // Validate required fields
-    if (!signerName || typeof signerName !== 'string' || signerName.trim().length === 0) {
+    if (
+      !signerName ||
+      typeof signerName !== "string" ||
+      signerName.trim().length === 0
+    ) {
       return NextResponse.json(
         { error: "Signer name is required" },
         { status: 400 }
       );
     }
 
-    if (!signerTitle || typeof signerTitle !== 'string' || signerTitle.trim().length === 0) {
+    if (
+      !signerTitle ||
+      typeof signerTitle !== "string" ||
+      signerTitle.trim().length === 0
+    ) {
       return NextResponse.json(
         { error: "Signer title is required" },
         { status: 400 }
@@ -264,9 +271,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Capture IP address from request headers
-    const forwardedFor = request.headers.get('x-forwarded-for');
-    const realIp = request.headers.get('x-real-ip');
-    const ipAddress = forwardedFor?.split(',')[0]?.trim() || realIp || 'unknown';
+    const forwardedFor = request.headers.get("x-forwarded-for");
+    const realIp = request.headers.get("x-real-ip");
+    const ipAddress =
+      forwardedFor?.split(",")[0]?.trim() || realIp || "unknown";
 
     const now = new Date();
 
@@ -284,15 +292,19 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    console.log('✅ [SERVICE-AGREEMENT] Agreement signed by:', signerName, 'for employer:', employer.companyName);
+    console.log(
+      "✅ [SERVICE-AGREEMENT] Agreement signed by:",
+      signerName,
+      "for employer:",
+      employer.companyName
+    );
 
     return NextResponse.json({
       success: true,
       signedAt: serviceAgreement.signedAt,
     });
-
   } catch (error) {
-    console.error('❌ [SERVICE-AGREEMENT] Error:', error);
+    console.error("❌ [SERVICE-AGREEMENT] Error:", error);
     return NextResponse.json(
       { error: "Failed to sign service agreement" },
       { status: 500 }
