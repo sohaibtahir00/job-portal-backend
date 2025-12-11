@@ -31,19 +31,20 @@ Get a paginated list of jobs with optional filters.
 
 #### Query Parameters
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `page` | number | 1 | Page number for pagination |
-| `limit` | number | 10 | Number of items per page |
-| `location` | string | - | Filter by location (case-insensitive partial match) |
-| `remote` | boolean | - | Filter by remote jobs (true/false) |
-| `type` | JobType | - | Filter by job type |
-| `experienceLevel` | ExperienceLevel | - | Filter by experience level |
-| `search` | string | - | Search in title, description, or requirements |
-| `employerId` | string | - | Filter by employer ID |
-| `status` | JobStatus | ACTIVE | Filter by job status (defaults to ACTIVE for public) |
+| Parameter         | Type            | Default | Description                                          |
+| ----------------- | --------------- | ------- | ---------------------------------------------------- |
+| `page`            | number          | 1       | Page number for pagination                           |
+| `limit`           | number          | 10      | Number of items per page                             |
+| `location`        | string          | -       | Filter by location (case-insensitive partial match)  |
+| `remote`          | boolean         | -       | Filter by remote jobs (true/false)                   |
+| `type`            | JobType         | -       | Filter by job type                                   |
+| `experienceLevel` | ExperienceLevel | -       | Filter by experience level                           |
+| `search`          | string          | -       | Search in title, description, or requirements        |
+| `employerId`      | string          | -       | Filter by employer ID                                |
+| `status`          | JobStatus       | ACTIVE  | Filter by job status (defaults to ACTIVE for public) |
 
 #### Job Types
+
 - `FULL_TIME`
 - `PART_TIME`
 - `CONTRACT`
@@ -51,12 +52,14 @@ Get a paginated list of jobs with optional filters.
 - `TEMPORARY`
 
 #### Experience Levels
+
 - `ENTRY_LEVEL`
 - `MID_LEVEL`
 - `SENIOR_LEVEL`
 - `EXECUTIVE`
 
 #### Job Statuses
+
 - `DRAFT` - Not published yet
 - `ACTIVE` - Published and accepting applications
 - `CLOSED` - No longer accepting applications
@@ -142,9 +145,9 @@ Get detailed information about a specific job, including full employer details.
 
 #### Path Parameters
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `id` | string | Job ID |
+| Parameter | Type   | Description |
+| --------- | ------ | ----------- |
+| `id`      | string | Job ID      |
 
 #### Example Request
 
@@ -198,6 +201,7 @@ curl "http://localhost:3000/api/jobs/clx123..."
 #### Error Responses
 
 **404 Not Found**
+
 ```json
 {
   "error": "Job not found"
@@ -296,14 +300,24 @@ curl -X POST "http://localhost:3000/api/jobs" \
 #### Error Responses
 
 **400 Bad Request** - Missing required fields
+
 ```json
 {
   "error": "Missing required fields",
-  "required": ["title", "description", "requirements", "responsibilities", "type", "location", "experienceLevel"]
+  "required": [
+    "title",
+    "description",
+    "requirements",
+    "responsibilities",
+    "type",
+    "location",
+    "experienceLevel"
+  ]
 }
 ```
 
 **400 Bad Request** - Invalid salary range
+
 ```json
 {
   "error": "Minimum salary cannot be greater than maximum salary"
@@ -311,6 +325,7 @@ curl -X POST "http://localhost:3000/api/jobs" \
 ```
 
 **400 Bad Request** - Invalid deadline
+
 ```json
 {
   "error": "Deadline must be in the future"
@@ -318,6 +333,7 @@ curl -X POST "http://localhost:3000/api/jobs" \
 ```
 
 **401 Unauthorized**
+
 ```json
 {
   "error": "Authentication required"
@@ -325,6 +341,7 @@ curl -X POST "http://localhost:3000/api/jobs" \
 ```
 
 **403 Forbidden**
+
 ```json
 {
   "error": "Insufficient permissions. Employer role required."
@@ -332,6 +349,7 @@ curl -X POST "http://localhost:3000/api/jobs" \
 ```
 
 **404 Not Found** - Employer profile missing
+
 ```json
 {
   "error": "Employer profile not found. Please complete your profile first."
@@ -352,9 +370,9 @@ Update an existing job. Requires EMPLOYER or ADMIN role.
 
 #### Path Parameters
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `id` | string | Job ID |
+| Parameter | Type   | Description |
+| --------- | ------ | ----------- |
+| `id`      | string | Job ID      |
 
 #### Request Body
 
@@ -398,6 +416,7 @@ curl -X PATCH "http://localhost:3000/api/jobs/clx123..." \
 #### Error Responses
 
 **401 Unauthorized**
+
 ```json
 {
   "error": "Authentication required"
@@ -405,6 +424,7 @@ curl -X PATCH "http://localhost:3000/api/jobs/clx123..." \
 ```
 
 **403 Forbidden** - Not owner
+
 ```json
 {
   "error": "Forbidden. You can only update your own jobs."
@@ -412,6 +432,7 @@ curl -X PATCH "http://localhost:3000/api/jobs/clx123..." \
 ```
 
 **404 Not Found**
+
 ```json
 {
   "error": "Job not found"
@@ -434,9 +455,9 @@ Soft delete a job by setting its status to `CLOSED`. Requires EMPLOYER or ADMIN 
 
 #### Path Parameters
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `id` | string | Job ID |
+| Parameter | Type   | Description |
+| --------- | ------ | ----------- |
+| `id`      | string | Job ID      |
 
 #### Example Request
 
@@ -461,6 +482,7 @@ curl -X DELETE "http://localhost:3000/api/jobs/clx123..." \
 #### Error Responses
 
 **400 Bad Request** - Active applications exist
+
 ```json
 {
   "error": "Cannot delete job with active applications. Please close it instead.",
@@ -469,6 +491,7 @@ curl -X DELETE "http://localhost:3000/api/jobs/clx123..." \
 ```
 
 **401 Unauthorized**
+
 ```json
 {
   "error": "Authentication required"
@@ -476,6 +499,7 @@ curl -X DELETE "http://localhost:3000/api/jobs/clx123..." \
 ```
 
 **403 Forbidden**
+
 ```json
 {
   "error": "Forbidden. You can only delete your own jobs."
@@ -483,6 +507,7 @@ curl -X DELETE "http://localhost:3000/api/jobs/clx123..." \
 ```
 
 **404 Not Found**
+
 ```json
 {
   "error": "Job not found"
@@ -499,13 +524,13 @@ Employer claims an aggregated job posting from external sources.
 
 **Authentication Required**: Yes (EMPLOYER only)
 
-This endpoint allows verified employers to claim job postings that were aggregated from external sources (job boards, company websites, etc.) and associate them with their employer profile.
+This endpoint allows verified employers to claim job postings that were aggregated from external sources (SkillProofs, company websites, etc.) and associate them with their employer profile.
 
 #### Path Parameters
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `id` | string | Job ID to claim |
+| Parameter | Type   | Description     |
+| --------- | ------ | --------------- |
+| `id`      | string | Job ID to claim |
 
 #### Request Body
 
@@ -553,6 +578,7 @@ curl -X POST "http://localhost:3000/api/jobs/clx123.../claim" \
 #### Error Responses
 
 **400 Bad Request** - Missing verification code
+
 ```json
 {
   "error": "Verification code required",
@@ -561,6 +587,7 @@ curl -X POST "http://localhost:3000/api/jobs/clx123.../claim" \
 ```
 
 **400 Bad Request** - Already claimed
+
 ```json
 {
   "error": "Job is already claimed",
@@ -569,6 +596,7 @@ curl -X POST "http://localhost:3000/api/jobs/clx123.../claim" \
 ```
 
 **401 Unauthorized**
+
 ```json
 {
   "error": "Authentication required"
@@ -576,6 +604,7 @@ curl -X POST "http://localhost:3000/api/jobs/clx123.../claim" \
 ```
 
 **403 Forbidden**
+
 ```json
 {
   "error": "Insufficient permissions. Employer role required."
@@ -583,6 +612,7 @@ curl -X POST "http://localhost:3000/api/jobs/clx123.../claim" \
 ```
 
 **404 Not Found** - Job not found
+
 ```json
 {
   "error": "Job not found"
@@ -590,6 +620,7 @@ curl -X POST "http://localhost:3000/api/jobs/clx123.../claim" \
 ```
 
 **404 Not Found** - Employer profile missing
+
 ```json
 {
   "error": "Employer profile not found. Please complete your profile first."
@@ -600,15 +631,15 @@ curl -X POST "http://localhost:3000/api/jobs/clx123.../claim" \
 
 ## Common Response Codes
 
-| Code | Description |
-|------|-------------|
-| 200 | Success |
-| 201 | Created |
-| 400 | Bad Request - Invalid input |
-| 401 | Unauthorized - Authentication required |
-| 403 | Forbidden - Insufficient permissions |
-| 404 | Not Found - Resource doesn't exist |
-| 500 | Internal Server Error |
+| Code | Description                            |
+| ---- | -------------------------------------- |
+| 200  | Success                                |
+| 201  | Created                                |
+| 400  | Bad Request - Invalid input            |
+| 401  | Unauthorized - Authentication required |
+| 403  | Forbidden - Insufficient permissions   |
+| 404  | Not Found - Resource doesn't exist     |
+| 500  | Internal Server Error                  |
 
 ---
 
