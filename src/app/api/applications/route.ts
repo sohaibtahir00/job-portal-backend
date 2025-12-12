@@ -480,6 +480,8 @@ export async function GET(request: NextRequest) {
             type: true,
             location: true,
             status: true,
+            remote: true,
+            remoteType: true,
             salaryMin: true,
             salaryMax: true,
             skills: true,
