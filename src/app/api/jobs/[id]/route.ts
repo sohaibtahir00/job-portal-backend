@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, requireAnyRole } from "@/lib/auth";
-import { UserRole, JobStatus, JobType, ExperienceLevel, NotificationType } from "@prisma/client";
+import { UserRole, JobStatus, JobType, ExperienceLevel, NotificationType, ApplicationStatus } from "@prisma/client";
 import { sendEmail } from "@/lib/email";
 
 /**
@@ -112,8 +112,12 @@ export async function GET(
             candidate.skills.length > 0
           );
 
+          // Consider withdrawn/rejected applications as not applied
+          const isActiveApplication = application &&
+            ![ApplicationStatus.WITHDRAWN, ApplicationStatus.REJECTED].includes(application.status as ApplicationStatus);
+
           candidateInfo = {
-            hasApplied: !!application,
+            hasApplied: !!isActiveApplication,
             isSaved: !!savedJob,
             application: application || null,
             profileComplete,

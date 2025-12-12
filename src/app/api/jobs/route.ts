@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, requireAnyRole } from "@/lib/auth";
-import { UserRole, JobStatus, JobType, ExperienceLevel } from "@prisma/client";
+import { UserRole, JobStatus, JobType, ExperienceLevel, ApplicationStatus } from "@prisma/client";
 
 /**
  * GET /api/jobs
@@ -216,6 +216,10 @@ export async function GET(request: NextRequest) {
         const application = applicationMap.get(job.id);
         const isSaved = savedJobsSet.has(job.id);
 
+        // Consider withdrawn/rejected applications as not applied
+        const isActiveApplication = application &&
+          ![ApplicationStatus.WITHDRAWN, ApplicationStatus.REJECTED].includes(application.status as ApplicationStatus);
+
         // Calculate match score (0-100)
         let matchScore = 0;
         let matchFactors = [];
@@ -262,7 +266,7 @@ export async function GET(request: NextRequest) {
         return {
           ...job,
           // Candidate-specific fields
-          hasApplied: !!application,
+          hasApplied: !!isActiveApplication,
           isSaved,
           applicationStatus: application?.status || null,
           appliedAt: application?.appliedAt || null,

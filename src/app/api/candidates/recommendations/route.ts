@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, requireRole } from "@/lib/auth";
-import { UserRole, JobStatus } from "@prisma/client";
+import { UserRole, JobStatus, ApplicationStatus } from "@prisma/client";
 import {
   calculateJobMatch,
   CandidateForMatching,
@@ -43,6 +43,11 @@ export async function GET(request: NextRequest) {
         preferredJobType: true,
         desiredRoles: true,
         applications: {
+          where: {
+            status: {
+              notIn: [ApplicationStatus.WITHDRAWN, ApplicationStatus.REJECTED],
+            },
+          },
           select: {
             jobId: true,
           },
