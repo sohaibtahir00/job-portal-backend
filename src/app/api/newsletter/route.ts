@@ -8,7 +8,7 @@ import { getCurrentUser } from "@/lib/auth";
  */
 export async function POST(req: NextRequest) {
   try {
-    const { email, name } = await req.json();
+    const { email } = await req.json();
 
     if (!email) {
       return NextResponse.json(
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (existing) {
-      if (existing.subscribed) {
+      if (existing.isActive) {
         return NextResponse.json(
           { error: "This email is already subscribed" },
           { status: 400 }
@@ -43,8 +43,8 @@ export async function POST(req: NextRequest) {
       const updated = await prisma.newsletter.update({
         where: { email: email.toLowerCase() },
         data: {
-          subscribed: true,
-          name: name || existing.name,
+          isActive: true,
+          unsubscribedAt: null,
         },
       });
 
@@ -59,8 +59,7 @@ export async function POST(req: NextRequest) {
     const subscription = await prisma.newsletter.create({
       data: {
         email: email.toLowerCase(),
-        name,
-        subscribed: true,
+        isActive: true,
       },
     });
 
@@ -96,23 +95,23 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "50");
-    const subscribed = searchParams.get("subscribed");
+    const active = searchParams.get("active");
 
     const skip = (page - 1) * limit;
 
     // Build where clause
     const where: any = {};
 
-    if (subscribed === "true") {
-      where.subscribed = true;
-    } else if (subscribed === "false") {
-      where.subscribed = false;
+    if (active === "true") {
+      where.isActive = true;
+    } else if (active === "false") {
+      where.isActive = false;
     }
 
     const [subscribers, totalCount] = await Promise.all([
       prisma.newsletter.findMany({
         where,
-        orderBy: { createdAt: "desc" },
+        orderBy: { subscribedAt: "desc" },
         skip,
         take: limit,
       }),
@@ -166,7 +165,10 @@ export async function DELETE(req: NextRequest) {
 
     await prisma.newsletter.update({
       where: { email: email.toLowerCase() },
-      data: { subscribed: false },
+      data: {
+        isActive: false,
+        unsubscribedAt: new Date(),
+      },
     });
 
     return NextResponse.json({
