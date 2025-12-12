@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
       where.employerId = employerId;
     }
 
-    // Search in title, description, or requirements
+    // Search in title, description, requirements, or employer company name
     if (search) {
       where.OR = [
         {
@@ -111,6 +111,14 @@ export async function GET(request: NextRequest) {
           requirements: {
             contains: search,
             mode: "insensitive",
+          },
+        },
+        {
+          employer: {
+            companyName: {
+              contains: search,
+              mode: "insensitive",
+            },
           },
         },
       ];

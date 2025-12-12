@@ -59,13 +59,14 @@ export async function GET(request: NextRequest) {
       status: JobStatus.ACTIVE, // Only show active jobs
     };
 
-    // Full-text search on title and description
+    // Full-text search on title, description, and company name
     if (searchQuery) {
       where.OR = [
         { title: { contains: searchQuery, mode: "insensitive" } },
         { description: { contains: searchQuery, mode: "insensitive" } },
         { requirements: { contains: searchQuery, mode: "insensitive" } },
         { responsibilities: { contains: searchQuery, mode: "insensitive" } },
+        { employer: { companyName: { contains: searchQuery, mode: "insensitive" } } },
       ];
     }
 
