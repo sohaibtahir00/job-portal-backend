@@ -1470,6 +1470,92 @@ export async function sendCheckInEmail(data: {
   });
 }
 
+/**
+ * Newsletter welcome email
+ * Sent when someone subscribes to the newsletter
+ */
+export async function sendNewsletterWelcomeEmail(data: {
+  email: string;
+  unsubscribeToken: string;
+}): Promise<{ success: boolean; error?: string; data?: any }> {
+  const unsubscribeUrl = `${EMAIL_CONFIG.appUrl}/newsletter/unsubscribe?token=${data.unsubscribeToken}`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #4F46E5, #7C3AED); color: white; padding: 40px 30px; text-align: center; border-radius: 8px 8px 0 0; }
+          .header h1 { margin: 0; font-size: 28px; }
+          .header p { margin: 10px 0 0; opacity: 0.9; }
+          .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+          .welcome-icon { font-size: 48px; text-align: center; margin: 20px 0; }
+          .benefits { background: white; padding: 20px; border-radius: 6px; margin: 20px 0; }
+          .benefits ul { margin: 10px 0; padding-left: 20px; }
+          .benefits li { margin: 8px 0; }
+          .button { display: inline-block; background: linear-gradient(135deg, #4F46E5, #7C3AED); color: white; padding: 14px 30px; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: bold; }
+          .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 12px; padding: 20px; }
+          .footer a { color: #4F46E5; text-decoration: none; }
+          .social { margin: 20px 0; }
+          .social a { display: inline-block; margin: 0 10px; color: #6B7280; text-decoration: none; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Welcome to SkillProof!</h1>
+            <p>You're now subscribed to our newsletter</p>
+          </div>
+          <div class="content">
+            <div class="welcome-icon">🎉</div>
+
+            <p>Thanks for subscribing to the SkillProof newsletter!</p>
+
+            <p>You'll be the first to know about:</p>
+
+            <div class="benefits">
+              <ul>
+                <li><strong>New job opportunities</strong> in AI/ML, Healthcare IT, Fintech & Cybersecurity</li>
+                <li><strong>Industry insights</strong> and salary trends</li>
+                <li><strong>Career tips</strong> from hiring managers</li>
+                <li><strong>Platform updates</strong> and new features</li>
+                <li><strong>Exclusive opportunities</strong> for subscribers</li>
+              </ul>
+            </div>
+
+            <div style="text-align: center;">
+              <a href="${EMAIL_CONFIG.appUrl}/jobs" class="button">Browse Latest Jobs</a>
+            </div>
+
+            <p>We promise to keep your inbox happy - no spam, just valuable content.</p>
+
+            <p>Best,<br>The SkillProof Team</p>
+          </div>
+          <div class="footer">
+            <p>You're receiving this because you subscribed at ${EMAIL_CONFIG.appUrl}</p>
+            <p>
+              <a href="${unsubscribeUrl}">Unsubscribe</a> |
+              <a href="${EMAIL_CONFIG.appUrl}/privacy">Privacy Policy</a>
+            </p>
+            <p>&copy; ${new Date().getFullYear()} SkillProof. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to: data.email,
+    subject: `Welcome to SkillProof Newsletter! 🎉`,
+    html,
+    text: `Thanks for subscribing to the SkillProof newsletter! You'll receive updates on job opportunities, industry insights, and career tips. Browse jobs at ${EMAIL_CONFIG.appUrl}/jobs. Unsubscribe: ${unsubscribeUrl}`,
+    from: EMAIL_ADDRESSES.noreply,
+  });
+}
+
 export default {
   sendCandidateWelcomeEmail,
   sendEmployerWelcomeEmail,
@@ -1486,4 +1572,5 @@ export default {
   sendIntroductionDeclinedEmail,
   sendAdminIntroductionQuestionsAlert,
   sendCheckInEmail,
+  sendNewsletterWelcomeEmail,
 };

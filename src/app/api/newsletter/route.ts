@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { sendNewsletterWelcomeEmail } from "@/lib/email";
+import crypto from "crypto";
+
+// Generate a unique token for unsubscribe links
+const generateToken = () => crypto.randomUUID();
 
 /**
  * POST /api/newsletter
@@ -40,12 +45,21 @@ export async function POST(req: NextRequest) {
       }
 
       // Re-subscribe if previously unsubscribed
+      // Generate token if missing (for legacy records)
+      const unsubscribeToken = existing.unsubscribeToken || generateToken();
       const updated = await prisma.newsletter.update({
         where: { email: email.toLowerCase() },
         data: {
           isActive: true,
           unsubscribedAt: null,
+          unsubscribeToken,
         },
+      });
+
+      // Send welcome email for re-subscription
+      await sendNewsletterWelcomeEmail({
+        email: updated.email,
+        unsubscribeToken: updated.unsubscribeToken!,
       });
 
       return NextResponse.json({
@@ -55,12 +69,20 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Create new subscription
+    // Create new subscription with generated token
+    const newUnsubscribeToken = generateToken();
     const subscription = await prisma.newsletter.create({
       data: {
         email: email.toLowerCase(),
         isActive: true,
+        unsubscribeToken: newUnsubscribeToken,
       },
+    });
+
+    // Send welcome email
+    await sendNewsletterWelcomeEmail({
+      email: subscription.email,
+      unsubscribeToken: subscription.unsubscribeToken!,
     });
 
     return NextResponse.json({
@@ -138,33 +160,46 @@ export async function GET(req: NextRequest) {
 
 /**
  * DELETE /api/newsletter
- * Unsubscribe from newsletter (public with email parameter)
+ * Unsubscribe from newsletter (public with token or email parameter)
  */
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
+    const token = searchParams.get("token");
     const email = searchParams.get("email");
 
-    if (!email) {
+    if (!token && !email) {
       return NextResponse.json(
-        { error: "Email is required" },
+        { error: "Token or email is required" },
         { status: 400 }
       );
     }
 
-    const subscription = await prisma.newsletter.findUnique({
-      where: { email: email.toLowerCase() },
-    });
+    // Find subscription by token (preferred) or email
+    const subscription = token
+      ? await prisma.newsletter.findUnique({
+          where: { unsubscribeToken: token },
+        })
+      : await prisma.newsletter.findUnique({
+          where: { email: email!.toLowerCase() },
+        });
 
     if (!subscription) {
       return NextResponse.json(
-        { error: "Email not found" },
+        { error: "Subscription not found" },
         { status: 404 }
       );
     }
 
+    if (!subscription.isActive) {
+      return NextResponse.json({
+        success: true,
+        message: "Already unsubscribed from newsletter",
+      });
+    }
+
     await prisma.newsletter.update({
-      where: { email: email.toLowerCase() },
+      where: { id: subscription.id },
       data: {
         isActive: false,
         unsubscribedAt: new Date(),

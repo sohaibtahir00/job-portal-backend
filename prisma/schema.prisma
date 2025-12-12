@@ -1037,15 +1037,17 @@ model Offer {
 
 // Newsletter Subscriptions
 model Newsletter {
-  id             String    @id @default(cuid())
-  email          String    @unique
-  subscribedAt   DateTime  @default(now())
-  isActive       Boolean   @default(true)
-  unsubscribedAt DateTime?
+  id               String    @id @default(cuid())
+  email            String    @unique
+  subscribedAt     DateTime  @default(now())
+  isActive         Boolean   @default(true)
+  unsubscribedAt   DateTime?
+  unsubscribeToken String?   @unique // Generated on creation, optional for existing records
 
   @@index([email])
   @@index([subscribedAt])
   @@index([isActive])
+  @@index([unsubscribeToken])
 }
 
 // Notification Types
