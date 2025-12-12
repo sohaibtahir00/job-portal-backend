@@ -72,6 +72,7 @@ export async function POST(request: NextRequest) {
         email: true,
         role: true,
         status: true,
+        notifyMessages: true,
       },
     });
 
@@ -182,9 +183,10 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Send email notification to receiver
-    try {
-      const emailHtml = `
+    // Send email notification to receiver (if enabled)
+    if (receiver.notifyMessages) {
+      try {
+        const emailHtml = `
         <!DOCTYPE html>
         <html>
           <head>
@@ -277,9 +279,10 @@ export async function POST(request: NextRequest) {
         subject: `New message from ${user.name}: ${messageSubject}`,
         html: emailHtml,
       });
-    } catch (emailError) {
-      console.error("Failed to send message notification email:", emailError);
-      // Don't fail the message sending if email fails
+      } catch (emailError) {
+        console.error("Failed to send message notification email:", emailError);
+        // Don't fail the message sending if email fails
+      }
     }
 
     // Create in-app notification for receiver

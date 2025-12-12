@@ -194,6 +194,7 @@ export async function POST(req: NextRequest) {
                   select: {
                     name: true,
                     email: true,
+                    notifyInterviewReminders: true,
                   },
                 },
               },
@@ -203,96 +204,98 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Send email notification to candidate with calendar invite
-    try {
-      const interviewDate = new Date(scheduledAt);
-      const formattedDate = interviewDate.toLocaleDateString('en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
-      const formattedTime = interviewDate.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true,
-      });
+    // Send email notification to candidate with calendar invite (if enabled)
+    if (interview.application.candidate.user.notifyInterviewReminders) {
+      try {
+        const interviewDate = new Date(scheduledAt);
+        const formattedDate = interviewDate.toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        });
+        const formattedTime = interviewDate.toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        });
 
-      // Generate calendar invite
-      const calendarInvite = generateInterviewCalendarInvite({
-        candidateName: interview.application.candidate.user.name,
-        candidateEmail: interview.application.candidate.user.email,
-        employerName: 'Hiring Team', // You may want to get actual employer name from the job
-        jobTitle: interview.application.job.title,
-        startTime: interviewDate,
-        duration: duration,
-        type: type,
-        location: location,
-        meetingLink: meetingLink,
-        notes: notes,
-      });
+        // Generate calendar invite
+        const calendarInvite = generateInterviewCalendarInvite({
+          candidateName: interview.application.candidate.user.name,
+          candidateEmail: interview.application.candidate.user.email,
+          employerName: 'Hiring Team', // You may want to get actual employer name from the job
+          jobTitle: interview.application.job.title,
+          startTime: interviewDate,
+          duration: duration,
+          type: type,
+          location: location,
+          meetingLink: meetingLink,
+          notes: notes,
+        });
 
-      await sendEmail({
-        to: interview.application.candidate.user.email,
-        subject: `Interview Scheduled: ${interview.application.job.title}`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #3b82f6;">📅 Interview Scheduled</h2>
-            <p>Hi ${interview.application.candidate.user.name},</p>
-            <p>You have been scheduled for an interview for the position of <strong>${interview.application.job.title}</strong>.</p>
+        await sendEmail({
+          to: interview.application.candidate.user.email,
+          subject: `Interview Scheduled: ${interview.application.job.title}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #3b82f6;">📅 Interview Scheduled</h2>
+              <p>Hi ${interview.application.candidate.user.name},</p>
+              <p>You have been scheduled for an interview for the position of <strong>${interview.application.job.title}</strong>.</p>
 
-            <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0;">
-              <p style="margin: 0 0 10px 0;"><strong>Interview Details:</strong></p>
-              <ul style="margin: 0; padding-left: 20px;">
-                <li><strong>Date:</strong> ${formattedDate}</li>
-                <li><strong>Time:</strong> ${formattedTime}</li>
-                <li><strong>Duration:</strong> ${duration} minutes</li>
-                <li><strong>Type:</strong> ${type}</li>
-                ${location ? `<li><strong>Location:</strong> ${location}</li>` : ''}
-                ${meetingLink ? `<li><strong>Meeting Link:</strong> <a href="${meetingLink}" style="color: #3b82f6;">${meetingLink}</a></li>` : ''}
-              </ul>
-            </div>
-
-            ${notes ? `
-              <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
-                <p style="margin: 0 0 10px 0;"><strong>Notes from Employer:</strong></p>
-                <p style="margin: 0;">${notes}</p>
+              <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0 0 10px 0;"><strong>Interview Details:</strong></p>
+                <ul style="margin: 0; padding-left: 20px;">
+                  <li><strong>Date:</strong> ${formattedDate}</li>
+                  <li><strong>Time:</strong> ${formattedTime}</li>
+                  <li><strong>Duration:</strong> ${duration} minutes</li>
+                  <li><strong>Type:</strong> ${type}</li>
+                  ${location ? `<li><strong>Location:</strong> ${location}</li>` : ''}
+                  ${meetingLink ? `<li><strong>Meeting Link:</strong> <a href="${meetingLink}" style="color: #3b82f6;">${meetingLink}</a></li>` : ''}
+                </ul>
               </div>
-            ` : ''}
 
-            <div style="background-color: #f0fdf4; border-left: 4px solid #059669; padding: 15px; margin: 20px 0;">
-              <p style="margin: 0 0 10px 0;"><strong>Preparation Tips:</strong></p>
-              <ul style="margin: 0; padding-left: 20px;">
-                <li>Review the job description and requirements</li>
-                <li>Research the company and prepare questions</li>
-                <li>Test your equipment if it's a video interview</li>
-                <li>Arrive 5-10 minutes early</li>
-              </ul>
+              ${notes ? `
+                <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
+                  <p style="margin: 0 0 10px 0;"><strong>Notes from Employer:</strong></p>
+                  <p style="margin: 0;">${notes}</p>
+                </div>
+              ` : ''}
+
+              <div style="background-color: #f0fdf4; border-left: 4px solid #059669; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0 0 10px 0;"><strong>Preparation Tips:</strong></p>
+                <ul style="margin: 0; padding-left: 20px;">
+                  <li>Review the job description and requirements</li>
+                  <li>Research the company and prepare questions</li>
+                  <li>Test your equipment if it's a video interview</li>
+                  <li>Arrive 5-10 minutes early</li>
+                </ul>
+              </div>
+
+              <div style="background-color: #e0f2fe; border-left: 4px solid #0284c7; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0;"><strong>📎 Calendar Invite Attached</strong><br>
+                A calendar invite (.ics file) is attached to this email. Click it to add this interview to your calendar app (Outlook, Google Calendar, Apple Calendar, etc.).</p>
+              </div>
+
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.FRONTEND_URL}/candidate/interviews" style="background-color: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">View Interview Details</a>
+              </div>
+
+              <p>Good luck with your interview!</p>
+              <p>Best regards,<br>The Job Portal Team</p>
             </div>
-
-            <div style="background-color: #e0f2fe; border-left: 4px solid #0284c7; padding: 15px; margin: 20px 0;">
-              <p style="margin: 0;"><strong>📎 Calendar Invite Attached</strong><br>
-              A calendar invite (.ics file) is attached to this email. Click it to add this interview to your calendar app (Outlook, Google Calendar, Apple Calendar, etc.).</p>
-            </div>
-
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL}/candidate/interviews" style="background-color: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">View Interview Details</a>
-            </div>
-
-            <p>Good luck with your interview!</p>
-            <p>Best regards,<br>The Job Portal Team</p>
-          </div>
-        `,
-        attachments: [
-          {
-            filename: 'interview.ics',
-            content: calendarInvite,
-          },
-        ],
-      });
-    } catch (emailError) {
-      console.error("Failed to send interview notification email:", emailError);
-      // Don't fail the interview creation if email fails
+          `,
+          attachments: [
+            {
+              filename: 'interview.ics',
+              content: calendarInvite,
+            },
+          ],
+        });
+      } catch (emailError) {
+        console.error("Failed to send interview notification email:", emailError);
+        // Don't fail the interview creation if email fails
+      }
     }
 
     // Create in-app notification for candidate

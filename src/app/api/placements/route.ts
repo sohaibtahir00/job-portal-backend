@@ -89,8 +89,10 @@ export async function POST(request: NextRequest) {
       include: {
         user: {
           select: {
+            id: true,
             name: true,
             email: true,
+            notifyPlacementUpdates: true,
           },
         },
       },
@@ -361,6 +363,52 @@ export async function POST(request: NextRequest) {
 
         console.log(`[PLACEMENT] Job ${jobId} marked as FILLED. Notified ${otherApplicants.length} other applicants.`);
       }
+    }
+
+    // Create notification for the placed candidate
+    try {
+      await prisma.notification.create({
+        data: {
+          userId: candidate.user.id,
+          type: NotificationType.APPLICATION_UPDATE,
+          title: "Congratulations! You've Been Placed",
+          message: `You have been placed as ${jobTitle} at ${finalCompanyName}. Welcome aboard!`,
+          link: `/candidate/placements`,
+        },
+      });
+
+      // Send placement confirmation email to candidate (if enabled)
+      if (candidate.user.notifyPlacementUpdates) {
+        await sendEmail({
+          to: candidate.user.email,
+          subject: `Congratulations! You've Been Placed - ${jobTitle} at ${finalCompanyName}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #059669;">🎉 Congratulations on Your New Position!</h2>
+              <p>Dear ${candidate.user.name},</p>
+              <p>We're thrilled to confirm that you have been officially placed as <strong>${jobTitle}</strong> at <strong>${finalCompanyName}</strong>!</p>
+
+              <div style="background-color: #f0fdf4; border-left: 4px solid #059669; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0 0 10px 0;"><strong>Placement Details:</strong></p>
+                <ul style="margin: 0; padding-left: 20px;">
+                  <li><strong>Position:</strong> ${jobTitle}</li>
+                  <li><strong>Company:</strong> ${finalCompanyName}</li>
+                  <li><strong>Start Date:</strong> ${new Date(startDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</li>
+                </ul>
+              </div>
+
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.FRONTEND_URL}/candidate/placements" style="background-color: #059669; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">View Placement Details</a>
+              </div>
+
+              <p>Best of luck in your new role!</p>
+              <p>Best regards,<br>The Job Portal Team</p>
+            </div>
+          `,
+        });
+      }
+    } catch (notifError) {
+      console.error("[PLACEMENT] Failed to notify candidate:", notifError);
     }
 
     // Send invoice email to employer

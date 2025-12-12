@@ -274,6 +274,7 @@ export async function POST(request: NextRequest) {
               select: {
                 name: true,
                 email: true,
+                notifyApplicationUpdates: true,
               },
             },
           },
@@ -293,51 +294,53 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Send email notification to candidate
-    try {
-      const daysUntilExpiry = Math.ceil(
-        (new Date(expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-      );
+    // Send email notification to candidate (if enabled)
+    if (offer.candidate.user.notifyApplicationUpdates) {
+      try {
+        const daysUntilExpiry = Math.ceil(
+          (new Date(expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+        );
 
-      await sendEmail({
-        to: offer.candidate.user.email,
-        subject: `Job Offer: ${position} at ${employer.companyName}`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #059669;">🎉 Congratulations! You've Received a Job Offer</h2>
-            <p>Hi ${offer.candidate.user.name},</p>
-            <p>Great news! <strong>${employer.companyName}</strong> has extended you a job offer for the position of <strong>${position}</strong>.</p>
+        await sendEmail({
+          to: offer.candidate.user.email,
+          subject: `Job Offer: ${position} at ${employer.companyName}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #059669;">🎉 Congratulations! You've Received a Job Offer</h2>
+              <p>Hi ${offer.candidate.user.name},</p>
+              <p>Great news! <strong>${employer.companyName}</strong> has extended you a job offer for the position of <strong>${position}</strong>.</p>
 
-            <div style="background-color: #f0fdf4; border-left: 4px solid #059669; padding: 15px; margin: 20px 0;">
-              <p style="margin: 0 0 10px 0;"><strong>Offer Details:</strong></p>
-              <ul style="margin: 0; padding-left: 20px;">
-                <li><strong>Position:</strong> ${position}</li>
-                <li><strong>Annual Salary:</strong> $${(salary / 100).toLocaleString()}</li>
-                ${signingBonus ? `<li><strong>Signing Bonus:</strong> $${(signingBonus / 100).toLocaleString()}</li>` : ""}
-                ${equity ? `<li><strong>Equity:</strong> ${equity}%</li>` : ""}
-                ${benefits && benefits.length > 0 ? `<li><strong>Benefits:</strong> ${benefits.join(", ")}</li>` : ""}
-                <li><strong>Start Date:</strong> ${new Date(startDate).toLocaleDateString()}</li>
-              </ul>
+              <div style="background-color: #f0fdf4; border-left: 4px solid #059669; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0 0 10px 0;"><strong>Offer Details:</strong></p>
+                <ul style="margin: 0; padding-left: 20px;">
+                  <li><strong>Position:</strong> ${position}</li>
+                  <li><strong>Annual Salary:</strong> $${(salary / 100).toLocaleString()}</li>
+                  ${signingBonus ? `<li><strong>Signing Bonus:</strong> $${(signingBonus / 100).toLocaleString()}</li>` : ""}
+                  ${equity ? `<li><strong>Equity:</strong> ${equity}%</li>` : ""}
+                  ${benefits && benefits.length > 0 ? `<li><strong>Benefits:</strong> ${benefits.join(", ")}</li>` : ""}
+                  <li><strong>Start Date:</strong> ${new Date(startDate).toLocaleDateString()}</li>
+                </ul>
+              </div>
+
+              ${customMessage ? `<div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0;"><p style="margin: 0;"><strong>Message from ${employer.companyName}:</strong></p><p style="margin: 10px 0 0 0;">${customMessage}</p></div>` : ""}
+
+              <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0; color: #92400e;">⏰ <strong>This offer expires in ${daysUntilExpiry} day(s)</strong> - Please respond by ${new Date(expiresAt).toLocaleDateString()}</p>
+              </div>
+
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.FRONTEND_URL}/candidate/offers" style="background-color: #059669; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 0 10px;">View & Accept Offer</a>
+              </div>
+
+              <p>Log in to your account to review the complete offer details and accept or decline.</p>
+              <p>Best regards,<br>The Job Portal Team</p>
             </div>
-
-            ${customMessage ? `<div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0;"><p style="margin: 0;"><strong>Message from ${employer.companyName}:</strong></p><p style="margin: 10px 0 0 0;">${customMessage}</p></div>` : ""}
-
-            <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
-              <p style="margin: 0; color: #92400e;">⏰ <strong>This offer expires in ${daysUntilExpiry} day(s)</strong> - Please respond by ${new Date(expiresAt).toLocaleDateString()}</p>
-            </div>
-
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL}/candidate/offers" style="background-color: #059669; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 0 10px;">View & Accept Offer</a>
-            </div>
-
-            <p>Log in to your account to review the complete offer details and accept or decline.</p>
-            <p>Best regards,<br>The Job Portal Team</p>
-          </div>
-        `,
-      });
-    } catch (emailError) {
-      console.error("Failed to send offer email to candidate:", emailError);
-      // Don't fail the offer creation if email fails
+          `,
+        });
+      } catch (emailError) {
+        console.error("Failed to send offer email to candidate:", emailError);
+        // Don't fail the offer creation if email fails
+      }
     }
 
     // Create in-app notification for candidate
