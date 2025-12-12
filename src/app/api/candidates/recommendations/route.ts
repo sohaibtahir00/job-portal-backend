@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get candidate profile
+    // Get candidate profile with their applications
     const candidate = await prisma.candidate.findUnique({
       where: { userId: user.id },
       select: {
@@ -42,6 +42,11 @@ export async function GET(request: NextRequest) {
         willingToRelocate: true,
         preferredJobType: true,
         desiredRoles: true,
+        applications: {
+          select: {
+            jobId: true,
+          },
+        },
       },
     });
 
@@ -51,6 +56,9 @@ export async function GET(request: NextRequest) {
         { status: 404 }
       );
     }
+
+    // Create a set of job IDs the candidate has applied to for quick lookup
+    const appliedJobIds = new Set(candidate.applications.map(app => app.jobId));
 
     // Get query parameters
     const { searchParams } = new URL(request.url);
@@ -158,6 +166,7 @@ export async function GET(request: NextRequest) {
           createdAt: job.createdAt,
           employer: job.employer,
         },
+        hasApplied: appliedJobIds.has(job.id),
         matchScore: matchScore.overall,
         matchBreakdown: matchScore.breakdown,
         reasons: matchScore.reasons,
