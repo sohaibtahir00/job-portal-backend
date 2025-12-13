@@ -70,9 +70,9 @@ export async function POST(request: NextRequest) {
     const { name, email, title } = await request.json();
 
     // Validate required fields
-    if (!name || !email) {
+    if (!name || !email || !title) {
       return NextResponse.json(
-        { error: "Name and email are required" },
+        { error: "Name, email, and job title are required" },
         { status: 400 }
       );
     }
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
         employerId: employer.id,
         name,
         email,
-        title: title || null,
+        title,
       },
     });
 
