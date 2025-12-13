@@ -109,3 +109,47 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+/**
+ * DELETE /api/candidates/education
+ * Delete all education entries for the current candidate
+ * Used when importing from resume to replace existing data
+ */
+export async function DELETE() {
+  try {
+    await requireRole(UserRole.CANDIDATE);
+    const user = await getCurrentUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const candidate = await prisma.candidate.findUnique({
+      where: { userId: user.id },
+      select: { id: true },
+    });
+
+    if (!candidate) {
+      return NextResponse.json(
+        { error: "Candidate profile not found" },
+        { status: 404 }
+      );
+    }
+
+    // Delete all education entries for this candidate
+    const result = await prisma.education.deleteMany({
+      where: { candidateId: candidate.id },
+    });
+
+    return NextResponse.json({
+      message: "All education entries deleted successfully",
+      count: result.count,
+    });
+  } catch (error) {
+    console.error("Education deletion error:", error);
+    return NextResponse.json(
+      { error: "Failed to delete education entries" },
+      { status: 500 }
+    );
+  }
+}
