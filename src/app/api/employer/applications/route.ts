@@ -164,6 +164,7 @@ export async function GET(request: NextRequest) {
         candidate: {
           select: {
             id: true,
+            photo: true, // Include candidate's profile photo
             experience: true,
             location: true,
             skills: true,
@@ -255,6 +256,7 @@ export async function GET(request: NextRequest) {
         },
         candidate: {
           id: app.candidate.id,
+          photo: app.candidate.photo, // Include candidate's profile photo
           experience: app.candidate.experience,
           location: app.candidate.location,
           skills: app.candidate.skills,

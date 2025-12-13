@@ -80,6 +80,7 @@ export async function GET(req: NextRequest) {
             candidate: {
               select: {
                 id: true,
+                photo: true, // Include candidate's profile photo
                 location: true,
                 skills: true,
                 experience: true,
