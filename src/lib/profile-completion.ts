@@ -7,12 +7,12 @@ import { Candidate } from "@prisma/client";
  */
 export function calculateProfileCompletion(candidate: Partial<Candidate> & { educationEntries?: any[] }): number {
   // Define which fields contribute to profile completion
+  // Total weight: 100%
   const fields = [
     { key: "phone", weight: 5 },
     { key: "resume", weight: 15 },
-    { key: "portfolio", weight: 10 },
-    { key: "linkedIn", weight: 10 },
-    { key: "github", weight: 10 },
+    { key: "linkedIn", weight: 15 },
+    { key: "github", weight: 15 },
     { key: "bio", weight: 15 },
     { key: "skills", weight: 15, isArray: true },
     { key: "experience", weight: 5 },
