@@ -3,8 +3,9 @@ import { Candidate } from "@prisma/client";
 /**
  * Calculate profile completion percentage for a candidate
  * Returns a percentage from 0 to 100 based on filled fields
+ * @param candidate - Candidate object with optional educationEntries relation
  */
-export function calculateProfileCompletion(candidate: Partial<Candidate>): number {
+export function calculateProfileCompletion(candidate: Partial<Candidate> & { educationEntries?: any[] }): number {
   // Define which fields contribute to profile completion
   const fields = [
     { key: "phone", weight: 5 },
@@ -15,7 +16,7 @@ export function calculateProfileCompletion(candidate: Partial<Candidate>): numbe
     { key: "bio", weight: 15 },
     { key: "skills", weight: 15, isArray: true },
     { key: "experience", weight: 5 },
-    { key: "education", weight: 10 },
+    { key: "educationEntries", weight: 10, isArray: true }, // Use educationEntries relation instead of deprecated education field
     { key: "location", weight: 5 },
   ];
 
@@ -25,7 +26,7 @@ export function calculateProfileCompletion(candidate: Partial<Candidate>): numbe
   for (const field of fields) {
     totalWeight += field.weight;
 
-    const value = candidate[field.key as keyof Candidate];
+    const value = (candidate as any)[field.key];
 
     // Check if field is filled
     let isFilled = false;
@@ -64,7 +65,10 @@ export function getProfileCompletionStatus(candidate: any) {
     if (!candidate.skills || !Array.isArray(candidate.skills) || candidate.skills.length === 0) {
       missingFields.push("skills");
     }
-    if (!candidate.education) missingFields.push("education");
+    // Check educationEntries relation instead of deprecated education field
+    if (!candidate.educationEntries || !Array.isArray(candidate.educationEntries) || candidate.educationEntries.length === 0) {
+      missingFields.push("education");
+    }
     if (!candidate.location) missingFields.push("location");
 
     // Determine status
