@@ -141,7 +141,7 @@ export async function GET(request: NextRequest) {
             skills: true,
             preferredJobType: true,
             location: true,
-            experienceLevel: true,
+            experience: true,
             hasTakenTest: true,
           },
         });
